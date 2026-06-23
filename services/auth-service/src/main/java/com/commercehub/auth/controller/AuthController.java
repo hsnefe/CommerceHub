@@ -6,7 +6,7 @@ import com.commercehub.auth.dto.RefreshTokenRequest;
 import com.commercehub.auth.dto.RegisterRequest;
 import com.commercehub.auth.dto.TokenResponse;
 import com.commercehub.auth.dto.UserResponse;
-import com.commercehub.auth.security.AuthUserDetails;
+import com.commercehub.security.JwtPrincipal;
 import com.commercehub.auth.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -54,7 +54,7 @@ public class AuthController {
     @Operation(summary = "Logout and revoke refresh token", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<Void> logout(
             @Valid @RequestBody LogoutRequest request,
-            @AuthenticationPrincipal AuthUserDetails userDetails
+            @AuthenticationPrincipal JwtPrincipal userDetails
     ) {
         authService.logout(request.refreshToken());
         return ResponseEntity.noContent().build();
@@ -62,7 +62,7 @@ public class AuthController {
 
     @GetMapping("/me")
     @Operation(summary = "Get current authenticated user", security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<UserResponse> me(@AuthenticationPrincipal AuthUserDetails userDetails) {
+    public ResponseEntity<UserResponse> me(@AuthenticationPrincipal JwtPrincipal userDetails) {
         return ResponseEntity.ok(authService.getCurrentUser(userDetails.getId()));
     }
 }

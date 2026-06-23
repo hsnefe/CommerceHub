@@ -12,7 +12,7 @@ import com.commercehub.auth.exception.NotFoundException;
 import com.commercehub.auth.exception.UnauthorizedException;
 import com.commercehub.auth.repository.RoleRepository;
 import com.commercehub.auth.repository.UserRepository;
-import com.commercehub.auth.security.JwtService;
+import com.commercehub.security.AccessTokenIssuer;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +27,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
+    private final AccessTokenIssuer accessTokenIssuer;
     private final TokenService tokenService;
     private final EmailVerificationProperties emailVerificationProperties;
 
@@ -35,14 +35,14 @@ public class AuthService {
             UserRepository userRepository,
             RoleRepository roleRepository,
             PasswordEncoder passwordEncoder,
-            JwtService jwtService,
+            AccessTokenIssuer accessTokenIssuer,
             TokenService tokenService,
             EmailVerificationProperties emailVerificationProperties
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
-        this.jwtService = jwtService;
+        this.accessTokenIssuer = accessTokenIssuer;
         this.tokenService = tokenService;
         this.emailVerificationProperties = emailVerificationProperties;
     }
@@ -87,9 +87,12 @@ public class AuthService {
         User user = tokenService.validateAndGetUser(rawRefreshToken);
         String newRefreshToken = tokenService.rotateRefreshToken(rawRefreshToken);
         return new TokenResponse(
-                jwtService.generateAccessToken(user),
+                accessTokenIssuer.generateAccessToken(
+                        user.getId(),
+                        user.getRoles().stream().map(Role::getName).sorted().toList()
+                ),
                 newRefreshToken,
-                jwtService.getAccessTokenExpirationSeconds()
+                accessTokenIssuer.getAccessTokenExpirationSeconds()
         );
     }
 
@@ -107,9 +110,12 @@ public class AuthService {
 
     private TokenResponse buildTokenResponse(User user) {
         return new TokenResponse(
-                jwtService.generateAccessToken(user),
+                accessTokenIssuer.generateAccessToken(
+                        user.getId(),
+                        user.getRoles().stream().map(Role::getName).sorted().toList()
+                ),
                 tokenService.createRefreshToken(user),
-                jwtService.getAccessTokenExpirationSeconds()
+                accessTokenIssuer.getAccessTokenExpirationSeconds()
         );
     }
 

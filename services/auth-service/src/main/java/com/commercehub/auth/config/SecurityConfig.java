@@ -1,6 +1,6 @@
 package com.commercehub.auth.config;
 
-import com.commercehub.auth.security.JwtAuthenticationFilter;
+import com.commercehub.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;

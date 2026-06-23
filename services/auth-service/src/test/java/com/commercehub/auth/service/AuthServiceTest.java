@@ -12,7 +12,7 @@ import com.commercehub.auth.exception.NotFoundException;
 import com.commercehub.auth.exception.UnauthorizedException;
 import com.commercehub.auth.repository.RoleRepository;
 import com.commercehub.auth.repository.UserRepository;
-import com.commercehub.auth.security.JwtService;
+import com.commercehub.security.AccessTokenIssuer;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -55,7 +56,7 @@ class AuthServiceTest {
     private PasswordEncoder passwordEncoder;
 
     @Mock
-    private JwtService jwtService;
+    private AccessTokenIssuer accessTokenIssuer;
 
     @Mock
     private TokenService tokenService;
@@ -91,8 +92,8 @@ class AuthServiceTest {
     }
 
     private void stubJwtAndTokenServices(User user) {
-        when(jwtService.generateAccessToken(user)).thenReturn(ACCESS_TOKEN);
-        when(jwtService.getAccessTokenExpirationSeconds()).thenReturn(EXPIRES_IN);
+        when(accessTokenIssuer.generateAccessToken(eq(user.getId()), any(List.class))).thenReturn(ACCESS_TOKEN);
+        when(accessTokenIssuer.getAccessTokenExpirationSeconds()).thenReturn(EXPIRES_IN);
         when(tokenService.createRefreshToken(user)).thenReturn(REFRESH_TOKEN);
     }
 
@@ -287,8 +288,8 @@ class AuthServiceTest {
             User user = sampleUser();
             when(tokenService.validateAndGetUser(REFRESH_TOKEN)).thenReturn(user);
             when(tokenService.rotateRefreshToken(REFRESH_TOKEN)).thenReturn(NEW_REFRESH_TOKEN);
-            when(jwtService.generateAccessToken(user)).thenReturn(ACCESS_TOKEN);
-            when(jwtService.getAccessTokenExpirationSeconds()).thenReturn(EXPIRES_IN);
+            when(accessTokenIssuer.generateAccessToken(eq(user.getId()), any(List.class))).thenReturn(ACCESS_TOKEN);
+            when(accessTokenIssuer.getAccessTokenExpirationSeconds()).thenReturn(EXPIRES_IN);
 
             TokenResponse response = authService.refresh(REFRESH_TOKEN);
 
