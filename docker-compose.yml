@@ -1,0 +1,57 @@
+services:
+  auth-db:
+    image: postgres:16
+    container_name: commercehub-auth-db
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - auth_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  auth-service:
+    build: ./services/auth-service
+    container_name: commercehub-auth-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/auth_db
+      SPRING_DATASOURCE_USERNAME: auth_user
+      SPRING_DATASOURCE_PASSWORD: auth_pass
+      JWT_SECRET: dev-secret-key-change-in-production-min-32-chars
+      AUTH_EMAIL_VERIFICATION_REQUIRED: "false"
+
+  # product-service:
+  #   build: ./services/product-service
+  #   ports:
+  #     - "8082:8082"
+  #   depends_on:
+  #     - product-db
+
+  # inventory-service:
+  #   build: ./services/inventory-service
+  #   ports:
+  #     - "8083:8083"
+
+  # order-service:
+  #   build: ./services/order-service
+  #   ports:
+  #     - "8084:8084"
+
+  # notification-service:
+  #   build: ./services/notification-service
+  #   ports:
+  #     - "8085:8085"
+
+volumes:
+  auth_pg_data:

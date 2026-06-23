@@ -1,0 +1,11 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/auth_db
+    username: auth_user
+    password: auth_pass
+
+auth:
+  jwt:
+    secret: test-secret-key-for-integration-tests-min-32-chars
+  email-verification:
+    required: false
