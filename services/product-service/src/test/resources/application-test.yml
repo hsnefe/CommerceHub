@@ -1,0 +1,9 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5434/product_db
+    username: product_user
+    password: product_pass
+
+auth:
+  jwt:
+    secret: test-secret-key-for-integration-tests-min-32-chars
