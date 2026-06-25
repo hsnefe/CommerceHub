@@ -16,6 +16,25 @@ Authentication and authorization service for CommerceHub. Handles user registrat
 | POST | `/api/v1/auth/logout` | Revoke refresh token (requires JWT) |
 | GET | `/api/v1/auth/me` | Get current user (requires JWT) |
 
+## Product Service
+
+Product catalog service for CommerceHub. Manages products, categories, pagination, filtering, and internal product snapshots for order processing.
+
+### Endpoints
+
+| Method | Path | Access | Description |
+|--------|------|--------|-------------|
+| GET | `/api/v1/products` | Public | List products (`?page=0&size=20&categoryId=&name=`) |
+| GET | `/api/v1/products/{id}` | Public | Get product details |
+| POST | `/api/v1/products` | ADMIN | Create product |
+| PUT | `/api/v1/products/{id}` | ADMIN | Update product |
+| DELETE | `/api/v1/products/{id}` | ADMIN | Soft-delete product |
+| GET | `/api/v1/products/categories` | Public | List categories |
+| POST | `/api/v1/products/categories` | ADMIN | Create category |
+| PUT | `/api/v1/products/categories/{id}` | ADMIN | Update category |
+| DELETE | `/api/v1/products/categories/{id}` | ADMIN | Delete category |
+| GET | `/internal/products/{id}` | Internal (V1 open) | Product snapshot for Order Service |
+
 ### Run with Docker Compose
 
 ```bash
@@ -23,32 +42,37 @@ docker compose up --build
 ```
 
 - Auth Service: http://localhost:8081
-- Swagger UI: http://localhost:8081/swagger-ui.html
-- PostgreSQL: `localhost:5433` (user: `auth_user`, db: `auth_db`)
+- Product Service: http://localhost:8082
+- Auth Swagger UI: http://localhost:8081/swagger-ui.html
+- Product Swagger UI: http://localhost:8082/swagger-ui.html
+- Auth PostgreSQL: `localhost:5433` (user: `auth_user`, db: `auth_db`)
+- Product PostgreSQL: `localhost:5434` (user: `product_user`, db: `product_db`)
 
 ### Run locally (requires Java 21+ and Maven)
 
-Start PostgreSQL first (or use `docker compose up auth-db`), then:
+Start PostgreSQL first (or use `docker compose up auth-db product-db`), then:
 
 ```bash
-cd services/auth-service
-mvn spring-boot:run
+cd services
+mvn -pl auth-service spring-boot:run
+# or
+mvn -pl product-service spring-boot:run
 ```
 
 Environment variables:
 
-| Variable | Default |
-|----------|---------|
-| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5433/auth_db` |
-| `SPRING_DATASOURCE_USERNAME` | `auth_user` |
-| `SPRING_DATASOURCE_PASSWORD` | `auth_pass` |
-| `JWT_SECRET` | (dev default in application.yml) |
-| `AUTH_EMAIL_VERIFICATION_REQUIRED` | `false` |
+| Variable | Auth default | Product default |
+|----------|--------------|-----------------|
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5433/auth_db` | `jdbc:postgresql://localhost:5434/product_db` |
+| `SPRING_DATASOURCE_USERNAME` | `auth_user` | `product_user` |
+| `SPRING_DATASOURCE_PASSWORD` | `auth_pass` | `product_pass` |
+| `JWT_SECRET` | (dev default in application.yml) | Same secret as auth-service |
+| `AUTH_EMAIL_VERIFICATION_REQUIRED` | `false` | — |
 
 ### Run tests
 
 ```bash
-cd services/auth-service
+cd services
 mvn test
 ```
 
@@ -63,3 +87,5 @@ SELECT u.id, r.id
 FROM users u, roles r
 WHERE u.email = 'admin@example.com' AND r.name = 'ADMIN';
 ```
+
+Use the JWT from auth-service login to call ADMIN-only product endpoints.
