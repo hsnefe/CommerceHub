@@ -17,7 +17,9 @@ services:
       retries: 5
 
   auth-service:
-    build: ./services/auth-service
+    build:
+      context: ./services
+      dockerfile: auth-service/Dockerfile
     container_name: commercehub-auth-service
     ports:
       - "8081:8081"
@@ -31,12 +33,38 @@ services:
       JWT_SECRET: dev-secret-key-change-in-production-min-32-chars
       AUTH_EMAIL_VERIFICATION_REQUIRED: "false"
 
-  # product-service:
-  #   build: ./services/product-service
-  #   ports:
-  #     - "8082:8082"
-  #   depends_on:
-  #     - product-db
+  product-db:
+    image: postgres:16
+    container_name: commercehub-product-db
+    environment:
+      POSTGRES_DB: product_db
+      POSTGRES_USER: product_user
+      POSTGRES_PASSWORD: product_pass
+    ports:
+      - "5434:5432"
+    volumes:
+      - product_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U product_user -d product_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  product-service:
+    build:
+      context: ./services
+      dockerfile: product-service/Dockerfile
+    container_name: commercehub-product-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      product-db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://product-db:5432/product_db
+      SPRING_DATASOURCE_USERNAME: product_user
+      SPRING_DATASOURCE_PASSWORD: product_pass
+      JWT_SECRET: dev-secret-key-change-in-production-min-32-chars
 
   # inventory-service:
   #   build: ./services/inventory-service
@@ -55,3 +83,4 @@ services:
 
 volumes:
   auth_pg_data:
+  product_pg_data:
