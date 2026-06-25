@@ -95,14 +95,14 @@ export function mountAuthPanel(container: HTMLElement): void {
         setStatus('Kayıt tamam ama giriş başarısız. "Sadece giriş yap"ı deneyin.', 'error');
         return;
       }
-      setStatus('Kayıt ve giriş tamam.', 'success');
+      setStatus('Kayıt ve giriş tamam. Kategoriler sekmesine yönlendiriliyorsun...', 'success');
       return;
     }
 
     setStatus('Giriş yapılıyor...', 'info');
     const ok = await completeLogin(email, password);
     setStatus(
-      ok ? 'Giriş başarılı.' : 'Giriş başarısız. Bilgileri kontrol et.',
+      ok ? 'Giriş başarılı. Kategoriler sekmesine yönlendiriliyorsun...' : 'Giriş başarısız. Bilgileri kontrol et.',
       ok ? 'success' : 'error',
     );
   });

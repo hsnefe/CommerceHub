@@ -132,14 +132,19 @@ export function mountHeader(root: HTMLElement): void {
     if (!connectionInfo) return;
     const cfg = getApiConfig();
     const authUrl = `${cfg.authBaseUrl}/api/v1/auth/me`;
-    const authOk = await fetch(authUrl, { method: 'GET' }).then((r) => r.status === 401 || r.ok);
+    const productUrl = `${cfg.productBaseUrl}/api/v1/products/categories`;
 
-    if (authOk) {
-      connectionInfo.textContent = 'Auth-service (8081) erişilebilir';
+    const [authOk, productOk] = await Promise.all([
+      fetch(authUrl, { method: 'GET' }).then((r) => r.status === 401 || r.ok),
+      fetch(productUrl, { method: 'GET' }).then((r) => r.ok),
+    ]);
+
+    if (authOk && productOk) {
+      connectionInfo.textContent = 'Auth (8081) ve Product (8082) erişilebilir';
       connectionInfo.className = 'connection-info connection-ok';
       return;
     }
-    connectionInfo.textContent = 'Auth-service kapalı — docker compose up --build çalıştır';
+    connectionInfo.textContent = 'Servisler kapalı olabilir — docker compose up --build çalıştır';
     connectionInfo.className = 'connection-info connection-error';
   }
 

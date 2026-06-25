@@ -8,6 +8,10 @@ export default defineConfig({
         target: 'http://localhost:8081',
         changeOrigin: true,
       },
+      '/api/v1/products': {
+        target: 'http://localhost:8082',
+        changeOrigin: true,
+      },
     },
   },
 });
