@@ -89,3 +89,40 @@ WHERE u.email = 'admin@example.com' AND r.name = 'ADMIN';
 ```
 
 Use the JWT from auth-service login to call ADMIN-only product endpoints.
+
+## Front-End Dev Console
+
+Manual API testing UI for auth-service and product-service. Runs on `http://localhost:5173` (already allowed in backend CORS).
+
+### Setup
+
+```bash
+# Terminal 1 — backend
+docker compose up --build
+
+# Terminal 2 — dev console
+cd frontend
+cp .env.example .env   # optional; empty URLs use Vite proxy
+npm install
+npm run dev
+```
+
+Open http://localhost:5173
+
+The dev server proxies `/api/v1/auth` → auth-service (`8081`) and `/api/v1/products` → product-service (`8082`), so login tokens from auth are sent automatically to product endpoints on the same origin.
+
+### Environment
+
+| Variable | Default |
+|----------|---------|
+| `VITE_AUTH_API_URL` | empty (Vite proxy) |
+| `VITE_PRODUCT_API_URL` | empty (Vite proxy) |
+
+### Manual test flow
+
+1. **Step 1 — Auth:** Click **Kayıt ol ve giriş yap** (register + auto-login) or **Sadece giriş yap**.
+2. You are redirected to **Categories** automatically after login.
+3. **ADMIN role (for create/update/delete):** Run the SQL above in `auth-db`, then login again.
+4. **Step 2 — Categories:** Create a category (ADMIN), click a row to copy its ID.
+5. **Step 3 — Products:** Create a product with that category ID, list and fetch by ID.
+6. **Auth:** Logout to confirm protected endpoints return 401.

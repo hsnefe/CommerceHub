@@ -2,6 +2,7 @@ FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
 COPY pom.xml .
 COPY common-security/pom.xml common-security/
+COPY auth-service/pom.xml auth-service/
 COPY product-service/pom.xml product-service/
 RUN mvn -pl product-service -am dependency:go-offline -B
 COPY common-security/src common-security/src
