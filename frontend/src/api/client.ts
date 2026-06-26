@@ -10,6 +10,7 @@ export interface ApiResult<T = unknown> {
 export interface ApiConfig {
   authBaseUrl: string;
   productBaseUrl: string;
+  inventoryBaseUrl: string;
 }
 
 interface RequestOptions extends RequestInit {
@@ -20,6 +21,7 @@ interface RequestOptions extends RequestInit {
 let config: ApiConfig = {
   authBaseUrl: import.meta.env.VITE_AUTH_API_URL ?? '',
   productBaseUrl: import.meta.env.VITE_PRODUCT_API_URL ?? '',
+  inventoryBaseUrl: import.meta.env.VITE_INVENTORY_API_URL ?? '',
 };
 
 type ResponseListener = (result: ApiResult) => void;
@@ -45,8 +47,13 @@ function notify(result: ApiResult): void {
   }
 }
 
-function resolveUrl(baseUrl: 'auth' | 'product', path: string): string {
-  const root = baseUrl === 'auth' ? config.authBaseUrl : config.productBaseUrl;
+function resolveUrl(baseUrl: 'auth' | 'product' | 'inventory', path: string): string {
+  const root =
+    baseUrl === 'auth'
+      ? config.authBaseUrl
+      : baseUrl === 'product'
+        ? config.productBaseUrl
+        : config.inventoryBaseUrl;
   return `${root}${path}`;
 }
 
@@ -88,7 +95,7 @@ async function tryRefreshToken(): Promise<boolean> {
 }
 
 export async function apiRequest<T = unknown>(
-  baseUrl: 'auth' | 'product',
+  baseUrl: 'auth' | 'product' | 'inventory',
   path: string,
   options: RequestOptions = {},
 ): Promise<ApiResult<T>> {

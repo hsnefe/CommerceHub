@@ -3,15 +3,17 @@ import { getCurrentUser, isAdmin, isAuthenticated, mountHeader, onSessionChange 
 import { mountAuthPanel } from './auth-panel';
 import { mountProductsPanel } from './products-panel';
 import { mountCategoriesPanel } from './categories-panel';
+import { mountInventoryPanel } from './inventory-panel';
 import { mountResponsePanel, showResponse } from './response-panel';
 import { onWorkflowEvent } from '../state/workflow';
 
-type TabId = 'auth' | 'products' | 'categories';
+type TabId = 'auth' | 'categories' | 'products' | 'inventory';
 
-const tabs: { id: TabId; label: string; step: number }[] = [
-  { id: 'auth', label: '1. Auth', step: 1 },
-  { id: 'categories', label: '2. Categories', step: 2 },
-  { id: 'products', label: '3. Products', step: 3 },
+const tabs: { id: TabId; label: string }[] = [
+  { id: 'auth', label: '1. Auth' },
+  { id: 'categories', label: '2. Categories' },
+  { id: 'products', label: '3. Products' },
+  { id: 'inventory', label: '4. Inventory' },
 ];
 
 export function mountApp(root: HTMLElement): void {
@@ -50,12 +52,17 @@ export function mountApp(root: HTMLElement): void {
       <div class="workflow-arrow">→</div>
       <div class="workflow-step ${activeTab === 'categories' ? 'active' : loggedIn ? 'ready' : 'locked'}">
         <span class="step-no">2</span>
-        <span>Kategoriler ${admin ? '(yazma açık)' : loggedIn ? '(sadece okuma)' : ''}</span>
+        <span>Kategoriler</span>
       </div>
       <div class="workflow-arrow">→</div>
       <div class="workflow-step ${activeTab === 'products' ? 'active' : loggedIn ? 'ready' : 'locked'}">
         <span class="step-no">3</span>
-        <span>Ürünler ${admin ? '(yazma açık)' : loggedIn ? '(sadece okuma)' : ''}</span>
+        <span>Ürünler</span>
+      </div>
+      <div class="workflow-arrow">→</div>
+      <div class="workflow-step ${activeTab === 'inventory' ? 'active' : loggedIn ? 'ready' : 'locked'}">
+        <span class="step-no">4</span>
+        <span>Stok ${admin ? '(yazma açık)' : loggedIn ? '(sadece okuma)' : ''}</span>
       </div>
     `;
   };
@@ -80,6 +87,8 @@ export function mountApp(root: HTMLElement): void {
       mountAuthPanel(panelSlot);
     } else if (tabId === 'products') {
       mountProductsPanel(panelSlot);
+    } else if (tabId === 'inventory') {
+      mountInventoryPanel(panelSlot);
     } else {
       mountCategoriesPanel(panelSlot);
     }

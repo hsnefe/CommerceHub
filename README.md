@@ -164,7 +164,7 @@ mvn -pl inventory-service test
 
 ## Front-End Dev Console
 
-Manual API testing UI for auth-service and product-service. Runs on `http://localhost:5173` (already allowed in backend CORS).
+Manual API testing UI for auth-service, product-service, and inventory-service. Runs on `http://localhost:5173` (already allowed in backend CORS).
 
 ### Setup
 
@@ -181,7 +181,7 @@ npm run dev
 
 Open http://localhost:5173
 
-The dev server proxies `/api/v1/auth` → auth-service (`8081`) and `/api/v1/products` → product-service (`8082`), so login tokens from auth are sent automatically to product endpoints on the same origin.
+The dev server proxies `/api/v1/auth` → auth-service (`8081`), `/api/v1/products` → product-service (`8082`), and `/api/v1/inventory` + `/internal/inventory` → inventory-service (`8083`), so login tokens from auth are sent automatically to protected endpoints on the same origin.
 
 ### Environment
 
@@ -189,6 +189,7 @@ The dev server proxies `/api/v1/auth` → auth-service (`8081`) and `/api/v1/pro
 |----------|---------|
 | `VITE_AUTH_API_URL` | empty (Vite proxy) |
 | `VITE_PRODUCT_API_URL` | empty (Vite proxy) |
+| `VITE_INVENTORY_API_URL` | empty (Vite proxy) |
 
 ### Manual test flow
 
@@ -197,4 +198,5 @@ The dev server proxies `/api/v1/auth` → auth-service (`8081`) and `/api/v1/pro
 3. **ADMIN role (for create/update/delete):** Run the SQL above in `auth-db`, then login again.
 4. **Step 2 — Categories:** Create a category (ADMIN), click a row to copy its ID.
 5. **Step 3 — Products:** Create a product with that category ID, list and fetch by ID.
-6. **Auth:** Logout to confirm protected endpoints return 401.
+6. **Step 4 — Inventory:** Create stock for the product ID (ADMIN), list, patch, or try internal increment/decrement.
+7. **Auth:** Logout to confirm protected endpoints return 401.

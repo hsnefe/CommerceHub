@@ -11,7 +11,7 @@ export function renderSessionBanner(): string {
   if (!isAdmin()) {
     return `
       <div class="flow-banner flow-banner-info">
-        Giriş yapıldı — listeleme ve detay çalışır. Oluşturma/güncelleme/silme için kullanıcıya <strong>ADMIN</strong> rolü verip tekrar giriş yap (README SQL).
+        Giriş yapıldı — listeleme ve detay çalışır. Oluşturma/güncelleme için kullanıcıya <strong>ADMIN</strong> rolü verip tekrar giriş yap (README SQL).
       </div>
     `;
   }

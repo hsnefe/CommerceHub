@@ -51,7 +51,7 @@ export function mountHeader(root: HTMLElement): void {
   header.innerHTML = `
     <div class="header-brand">
       <h1>CommerceHub Dev Console</h1>
-      <p>Auth → Product akışını tek oturumda test et</p>
+      <p>Auth → Product → Inventory akışını tek oturumda test et</p>
     </div>
     <div class="header-config">
       <label>
@@ -62,7 +62,11 @@ export function mountHeader(root: HTMLElement): void {
         Product API
         <input id="product-base-url" type="text" placeholder="Boş = Vite proxy (önerilen)" />
       </label>
-      <p class="hint">Proxy modunda istekler <code>/api/v1/auth</code> → 8081, <code>/api/v1/products</code> → 8082</p>
+      <label>
+        Inventory API
+        <input id="inventory-base-url" type="text" placeholder="Boş = Vite proxy (önerilen)" />
+      </label>
+      <p class="hint">Proxy: <code>/api/v1/auth</code> → 8081, <code>/api/v1/products</code> → 8082, <code>/api/v1/inventory</code> → 8083</p>
     </div>
     <div class="header-session">
       <div id="session-info" class="session-info">Oturum yok</div>
@@ -75,23 +79,27 @@ export function mountHeader(root: HTMLElement): void {
   const config = getApiConfig();
   const authInput = header.querySelector<HTMLInputElement>('#auth-base-url');
   const productInput = header.querySelector<HTMLInputElement>('#product-base-url');
+  const inventoryInput = header.querySelector<HTMLInputElement>('#inventory-base-url');
   const sessionInfo = header.querySelector('#session-info');
   const connectionInfo = header.querySelector('#connection-info');
   const clearBtn = header.querySelector('#clear-tokens');
 
   if (authInput) authInput.value = config.authBaseUrl;
   if (productInput) productInput.value = config.productBaseUrl;
+  if (inventoryInput) inventoryInput.value = config.inventoryBaseUrl;
 
   const applyConfig = () => {
     setApiConfig({
       authBaseUrl: authInput?.value.trim() ?? '',
       productBaseUrl: productInput?.value.trim() ?? '',
+      inventoryBaseUrl: inventoryInput?.value.trim() ?? '',
     });
     void checkConnections();
   };
 
   authInput?.addEventListener('change', applyConfig);
   productInput?.addEventListener('change', applyConfig);
+  inventoryInput?.addEventListener('change', applyConfig);
 
   const renderSession = (user: UserResponse | null) => {
     if (!sessionInfo) return;
@@ -106,7 +114,7 @@ export function mountHeader(root: HTMLElement): void {
       : 'bilinmiyor';
     if (user) {
       const adminNote = user.roles.includes('ADMIN')
-        ? 'Ürün/kategori yazma işlemleri açık'
+        ? 'Ürün/kategori/stok yazma işlemleri açık'
         : 'Sadece okuma — ADMIN için README SQL';
       sessionInfo.innerHTML = `
         <strong>${user.email}</strong>
@@ -133,14 +141,16 @@ export function mountHeader(root: HTMLElement): void {
     const cfg = getApiConfig();
     const authUrl = `${cfg.authBaseUrl}/api/v1/auth/me`;
     const productUrl = `${cfg.productBaseUrl}/api/v1/products/categories`;
+    const inventoryUrl = `${cfg.inventoryBaseUrl}/api/v1/inventory?page=0&size=1`;
 
-    const [authOk, productOk] = await Promise.all([
+    const [authOk, productOk, inventoryOk] = await Promise.all([
       fetch(authUrl, { method: 'GET' }).then((r) => r.status === 401 || r.ok),
       fetch(productUrl, { method: 'GET' }).then((r) => r.ok),
+      fetch(inventoryUrl, { method: 'GET' }).then((r) => r.ok),
     ]);
 
-    if (authOk && productOk) {
-      connectionInfo.textContent = 'Auth (8081) ve Product (8082) erişilebilir';
+    if (authOk && productOk && inventoryOk) {
+      connectionInfo.textContent = 'Auth (8081), Product (8082) ve Inventory (8083) erişilebilir';
       connectionInfo.className = 'connection-info connection-ok';
       return;
     }
