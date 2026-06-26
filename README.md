@@ -90,6 +90,78 @@ WHERE u.email = 'admin@example.com' AND r.name = 'ADMIN';
 
 Use the JWT from auth-service login to call ADMIN-only product endpoints.
 
+## Inventory Service
+
+Inventory management service for CommerceHub. Tracks per-product stock levels, low-stock thresholds, and exposes internal increment/decrement endpoints for order processing.
+
+### Endpoints
+
+| Method | Path | Access | Description |
+|--------|------|--------|-------------|
+| GET | `/api/v1/inventory` | Public | List inventory records (`?page=0&size=20`) |
+| GET | `/api/v1/inventory/{productId}` | Public | Get stock for a product |
+| POST | `/api/v1/inventory` | ADMIN | Create inventory record (validates product via product-service) |
+| PATCH | `/api/v1/inventory/{productId}` | ADMIN | Update quantity and/or low-stock threshold |
+| POST | `/internal/inventory/{productId}/decrement` | Internal (V1 open) | Decrement stock for orders |
+| POST | `/internal/inventory/{productId}/increment` | Internal (V1 open) | Increment stock for cancellations/returns |
+
+### Seed data
+
+Flyway seed migration includes sample product IDs (for local testing without product-service records):
+
+| Product ID | Quantity | Low-stock threshold |
+|------------|----------|---------------------|
+| `a1000000-0000-4000-8000-000000000001` | 100 | 10 |
+| `a1000000-0000-4000-8000-000000000002` | 3 | 5 |
+| `a1000000-0000-4000-8000-000000000003` | 0 | 5 |
+
+### Run with Docker Compose
+
+```bash
+docker compose up --build
+```
+
+- Auth Service: http://localhost:8081
+- Product Service: http://localhost:8082
+- Inventory Service: http://localhost:8083
+- Auth Swagger UI: http://localhost:8081/swagger-ui.html
+- Product Swagger UI: http://localhost:8082/swagger-ui.html
+- Inventory Swagger UI: http://localhost:8083/swagger-ui.html
+- Auth PostgreSQL: `localhost:5433` (user: `auth_user`, db: `auth_db`)
+- Product PostgreSQL: `localhost:5434` (user: `product_user`, db: `product_db`)
+- Inventory PostgreSQL: `localhost:5435` (user: `inventory_user`, db: `inventory_db`)
+
+### Run locally (requires Java 21+ and Maven)
+
+Start PostgreSQL first (or use `docker compose up auth-db product-db inventory-db`), then:
+
+```bash
+cd services
+mvn -pl auth-service spring-boot:run
+# or
+mvn -pl product-service spring-boot:run
+# or
+mvn -pl inventory-service spring-boot:run
+```
+
+Environment variables:
+
+| Variable | Auth default | Product default | Inventory default |
+|----------|--------------|-----------------|-------------------|
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5433/auth_db` | `jdbc:postgresql://localhost:5434/product_db` | `jdbc:postgresql://localhost:5435/inventory_db` |
+| `SPRING_DATASOURCE_USERNAME` | `auth_user` | `product_user` | `inventory_user` |
+| `SPRING_DATASOURCE_PASSWORD` | `auth_pass` | `product_pass` | `inventory_pass` |
+| `JWT_SECRET` | (dev default in application.yml) | Same secret as auth-service | Same secret as auth-service |
+| `AUTH_EMAIL_VERIFICATION_REQUIRED` | `false` | — | — |
+| `PRODUCT_SERVICE_BASE_URL` | — | — | `http://localhost:8082` |
+
+### Run tests
+
+```bash
+cd services
+mvn -pl inventory-service test
+```
+
 ## Front-End Dev Console
 
 Manual API testing UI for auth-service and product-service. Runs on `http://localhost:5173` (already allowed in backend CORS).
