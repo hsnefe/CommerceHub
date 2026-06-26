@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5435/inventory_db
+    username: inventory_user
+    password: inventory_pass
+
+auth:
+  jwt:
+    secret: test-secret-key-for-integration-tests-min-32-chars
+
+commercehub:
+  product-service:
+    base-url: http://localhost:8082
