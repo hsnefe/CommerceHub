@@ -21,6 +21,7 @@
         <module>common-security</module>
         <module>auth-service</module>
         <module>product-service</module>
+        <module>inventory-service</module>
     </modules>
 
     <properties>
