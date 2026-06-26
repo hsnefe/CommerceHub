@@ -18,7 +18,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -104,12 +103,12 @@ class InventoryServiceTest {
     }
 
     @Nested
-    class List {
+    class ListInventory {
 
         @Test
         void list_returnsPage() {
             when(inventoryItemRepository.findAll(eq(PageRequest.of(0, 20))))
-                    .thenReturn(new PageImpl<>(List.of(sampleItem()), PageRequest.of(0, 20), 1));
+                    .thenReturn(new PageImpl<>(java.util.List.of(sampleItem()), PageRequest.of(0, 20), 1));
 
             InventoryPageResponse page = inventoryService.list(0, 20);
 
