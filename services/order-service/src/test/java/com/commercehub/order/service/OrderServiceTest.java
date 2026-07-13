@@ -1,0 +1,270 @@
+package com.commercehub.order.service;
+
+import com.commercehub.order.client.InventoryClient;
+import com.commercehub.order.client.ProductClient;
+import com.commercehub.order.dto.CancelOrderResponse;
+import com.commercehub.order.dto.CreateOrderRequest;
+import com.commercehub.order.dto.CreateOrderResponse;
+import com.commercehub.order.dto.OrderDetailResponse;
+import com.commercehub.order.dto.OrderSummaryResponse;
+import com.commercehub.order.dto.ProductSnapshotResponse;
+import com.commercehub.order.entity.Order;
+import com.commercehub.order.entity.OrderItem;
+import com.commercehub.order.entity.OrderStatus;
+import com.commercehub.order.exception.ConflictException;
+import com.commercehub.order.exception.ForbiddenException;
+import com.commercehub.order.exception.NotFoundException;
+import com.commercehub.order.repository.OrderRepository;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class OrderServiceTest {
+
+    @Mock
+    private OrderRepository orderRepository;
+
+    @Mock
+    private ProductClient productClient;
+
+    @Mock
+    private InventoryClient inventoryClient;
+
+    @InjectMocks
+    private OrderService orderService;
+
+    private final UUID userId = UUID.fromString("c1000000-0000-4000-8000-000000000001");
+    private final UUID otherUserId = UUID.fromString("c1000000-0000-4000-8000-000000000099");
+    private final UUID productId = UUID.fromString("a1000000-0000-4000-8000-000000000001");
+    private final UUID productId2 = UUID.fromString("a1000000-0000-4000-8000-000000000002");
+    private final UUID orderId = UUID.fromString("d1000000-0000-4000-8000-000000000001");
+
+    private ProductSnapshotResponse mouseSnapshot() {
+        return new ProductSnapshotResponse(productId, "Gaming Mouse", new BigDecimal("799.99"));
+    }
+
+    private ProductSnapshotResponse keyboardSnapshot() {
+        return new ProductSnapshotResponse(productId2, "Keyboard", new BigDecimal("599.99"));
+    }
+
+    private Order sampleOrder() {
+        Order order = new Order();
+        order.setId(orderId);
+        order.setUserId(userId);
+        order.setStatus(OrderStatus.CREATED);
+        order.setTotalPrice(new BigDecimal("1599.98"));
+        order.setCreatedAt(Instant.parse("2026-06-22T10:00:00Z"));
+        order.setUpdatedAt(Instant.parse("2026-06-22T10:00:00Z"));
+
+        OrderItem item = new OrderItem();
+        item.setId(UUID.randomUUID());
+        item.setProductId(productId);
+        item.setProductName("Gaming Mouse");
+        item.setUnitPrice(new BigDecimal("799.99"));
+        item.setQuantity(2);
+        item.setLineTotal(new BigDecimal("1599.98"));
+        order.addItem(item);
+        return order;
+    }
+
+    @Nested
+    class Create {
+
+        @Test
+        void create_success() {
+            when(productClient.getProductSnapshot(productId)).thenReturn(mouseSnapshot());
+            doNothing().when(inventoryClient).decrement(productId, 2);
+            when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+                Order order = invocation.getArgument(0);
+                if (order.getId() == null) {
+                    order.setId(orderId);
+                }
+                if (order.getCreatedAt() == null) {
+                    order.setCreatedAt(Instant.parse("2026-06-22T10:00:00Z"));
+                }
+                return order;
+            });
+
+            CreateOrderResponse response = orderService.create(
+                    userId,
+                    new CreateOrderRequest(List.of(new CreateOrderRequest.OrderItemRequest(productId, 2)))
+            );
+
+            assertThat(response.orderId()).isEqualTo(orderId);
+            assertThat(response.status()).isEqualTo("CREATED");
+            assertThat(response.totalPrice()).isEqualByComparingTo("1599.98");
+
+            ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
+            verify(orderRepository).save(captor.capture());
+            assertThat(captor.getValue().getItems()).hasSize(1);
+            assertThat(captor.getValue().getItems().getFirst().getProductName()).isEqualTo("Gaming Mouse");
+            verify(inventoryClient).decrement(productId, 2);
+        }
+
+        @Test
+        void create_productNotFound_throwsNotFound() {
+            when(productClient.getProductSnapshot(productId)).thenThrow(new NotFoundException("Product not found"));
+
+            assertThatThrownBy(() -> orderService.create(
+                    userId,
+                    new CreateOrderRequest(List.of(new CreateOrderRequest.OrderItemRequest(productId, 1)))
+            )).isInstanceOf(NotFoundException.class);
+
+            verify(inventoryClient, never()).decrement(any(), any(Integer.class));
+            verify(orderRepository, never()).save(any());
+        }
+
+        @Test
+        void create_insufficientStock_throwsConflictAndDoesNotPersist() {
+            when(productClient.getProductSnapshot(productId)).thenReturn(mouseSnapshot());
+            doThrow(new ConflictException("Insufficient stock")).when(inventoryClient).decrement(productId, 2);
+
+            assertThatThrownBy(() -> orderService.create(
+                    userId,
+                    new CreateOrderRequest(List.of(new CreateOrderRequest.OrderItemRequest(productId, 2)))
+            )).isInstanceOf(ConflictException.class);
+
+            verify(orderRepository, never()).save(any());
+        }
+
+        @Test
+        void create_secondItemStockFails_compensatesFirstDecrement() {
+            when(productClient.getProductSnapshot(productId)).thenReturn(mouseSnapshot());
+            when(productClient.getProductSnapshot(productId2)).thenReturn(keyboardSnapshot());
+            doNothing().when(inventoryClient).decrement(productId, 1);
+            doThrow(new ConflictException("Insufficient stock")).when(inventoryClient).decrement(productId2, 1);
+            doNothing().when(inventoryClient).increment(productId, 1);
+
+            assertThatThrownBy(() -> orderService.create(
+                    userId,
+                    new CreateOrderRequest(List.of(
+                            new CreateOrderRequest.OrderItemRequest(productId, 1),
+                            new CreateOrderRequest.OrderItemRequest(productId2, 1)
+                    ))
+            )).isInstanceOf(ConflictException.class);
+
+            verify(inventoryClient).increment(productId, 1);
+            verify(orderRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    class GetById {
+
+        @Test
+        void getById_owner_success() {
+            when(orderRepository.findWithItemsById(orderId)).thenReturn(Optional.of(sampleOrder()));
+
+            OrderDetailResponse response = orderService.getById(orderId, userId, false);
+
+            assertThat(response.orderId()).isEqualTo(orderId);
+            assertThat(response.userId()).isEqualTo(userId);
+            assertThat(response.items()).hasSize(1);
+            assertThat(response.items().getFirst().productName()).isEqualTo("Gaming Mouse");
+        }
+
+        @Test
+        void getById_otherUser_throwsForbidden() {
+            when(orderRepository.findWithItemsById(orderId)).thenReturn(Optional.of(sampleOrder()));
+
+            assertThatThrownBy(() -> orderService.getById(orderId, otherUserId, false))
+                    .isInstanceOf(ForbiddenException.class);
+        }
+
+        @Test
+        void getById_admin_canAccessOtherUsersOrder() {
+            when(orderRepository.findWithItemsById(orderId)).thenReturn(Optional.of(sampleOrder()));
+
+            OrderDetailResponse response = orderService.getById(orderId, otherUserId, true);
+
+            assertThat(response.orderId()).isEqualTo(orderId);
+        }
+
+        @Test
+        void getById_notFound() {
+            when(orderRepository.findWithItemsById(orderId)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> orderService.getById(orderId, userId, false))
+                    .isInstanceOf(NotFoundException.class);
+        }
+    }
+
+    @Nested
+    class ListByUser {
+
+        @Test
+        void listByUser_owner_success() {
+            when(orderRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(List.of(sampleOrder()));
+
+            List<OrderSummaryResponse> responses = orderService.listByUser(userId, userId, false);
+
+            assertThat(responses).hasSize(1);
+            assertThat(responses.getFirst().status()).isEqualTo("CREATED");
+        }
+
+        @Test
+        void listByUser_otherUser_throwsForbidden() {
+            assertThatThrownBy(() -> orderService.listByUser(userId, otherUserId, false))
+                    .isInstanceOf(ForbiddenException.class);
+        }
+    }
+
+    @Nested
+    class Cancel {
+
+        @Test
+        void cancel_success_incrementsStock() {
+            Order order = sampleOrder();
+            when(orderRepository.findWithItemsById(orderId)).thenReturn(Optional.of(order));
+            doNothing().when(inventoryClient).increment(productId, 2);
+            when(orderRepository.save(order)).thenReturn(order);
+
+            CancelOrderResponse response = orderService.cancel(orderId, userId, false);
+
+            assertThat(response.status()).isEqualTo("CANCELLED");
+            verify(inventoryClient).increment(eq(productId), eq(2));
+            verify(orderRepository).save(order);
+        }
+
+        @Test
+        void cancel_alreadyCancelled_throwsConflict() {
+            Order order = sampleOrder();
+            order.setStatus(OrderStatus.CANCELLED);
+            when(orderRepository.findWithItemsById(orderId)).thenReturn(Optional.of(order));
+
+            assertThatThrownBy(() -> orderService.cancel(orderId, userId, false))
+                    .isInstanceOf(ConflictException.class);
+
+            verify(inventoryClient, never()).increment(any(), any(Integer.class));
+        }
+
+        @Test
+        void cancel_otherUser_throwsForbidden() {
+            when(orderRepository.findWithItemsById(orderId)).thenReturn(Optional.of(sampleOrder()));
+
+            assertThatThrownBy(() -> orderService.cancel(orderId, otherUserId, false))
+                    .isInstanceOf(ForbiddenException.class);
+        }
+    }
+}
