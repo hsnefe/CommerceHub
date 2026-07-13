@@ -4,6 +4,8 @@ COPY pom.xml .
 COPY common-security/pom.xml common-security/
 COPY auth-service/pom.xml auth-service/
 COPY product-service/pom.xml product-service/
+COPY inventory-service/pom.xml inventory-service/
+COPY order-service/pom.xml order-service/
 RUN mvn -pl auth-service -am dependency:go-offline -B
 COPY common-security/src common-security/src
 COPY auth-service/src auth-service/src
