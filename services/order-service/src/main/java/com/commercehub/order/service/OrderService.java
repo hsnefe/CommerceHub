@@ -1,6 +1,8 @@
 package com.commercehub.order.service;
 
+import com.commercehub.order.client.AuthClient;
 import com.commercehub.order.client.InventoryClient;
+import com.commercehub.order.client.NotificationClient;
 import com.commercehub.order.client.ProductClient;
 import com.commercehub.order.dto.CancelOrderResponse;
 import com.commercehub.order.dto.CreateOrderRequest;
@@ -30,15 +32,21 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ProductClient productClient;
     private final InventoryClient inventoryClient;
+    private final AuthClient authClient;
+    private final NotificationClient notificationClient;
 
     public OrderService(
             OrderRepository orderRepository,
             ProductClient productClient,
-            InventoryClient inventoryClient
+            InventoryClient inventoryClient,
+            AuthClient authClient,
+            NotificationClient notificationClient
     ) {
         this.orderRepository = orderRepository;
         this.productClient = productClient;
         this.inventoryClient = inventoryClient;
+        this.authClient = authClient;
+        this.notificationClient = notificationClient;
     }
 
     @Transactional
@@ -82,6 +90,12 @@ public class OrderService {
         }
 
         Order saved = orderRepository.save(order);
+        try {
+            String email = authClient.getUserEmail(userId);
+            notificationClient.sendOrderCreated(email, saved.getId());
+        } catch (RuntimeException ex) {
+            // Notification is best-effort; the order is already persisted.
+        }
         return new CreateOrderResponse(
                 saved.getId(),
                 saved.getStatus().name(),

@@ -1,0 +1,17 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: notification-service
+
+auth:
+  jwt:
+    secret: ${JWT_SECRET:change-me-to-a-secure-secret-key-at-least-32-chars-long}
+    access-token-expiration-seconds: 3600
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

@@ -1,6 +1,8 @@
 package com.commercehub.order.service;
 
+import com.commercehub.order.client.AuthClient;
 import com.commercehub.order.client.InventoryClient;
+import com.commercehub.order.client.NotificationClient;
 import com.commercehub.order.client.ProductClient;
 import com.commercehub.order.dto.CancelOrderResponse;
 import com.commercehub.order.dto.CreateOrderRequest;
@@ -51,6 +53,12 @@ class OrderServiceTest {
     @Mock
     private InventoryClient inventoryClient;
 
+    @Mock
+    private AuthClient authClient;
+
+    @Mock
+    private NotificationClient notificationClient;
+
     @InjectMocks
     private OrderService orderService;
 
@@ -95,6 +103,8 @@ class OrderServiceTest {
         void create_success() {
             when(productClient.getProductSnapshot(productId)).thenReturn(mouseSnapshot());
             doNothing().when(inventoryClient).decrement(productId, 2);
+            when(authClient.getUserEmail(userId)).thenReturn("user@example.com");
+            doNothing().when(notificationClient).sendOrderCreated(eq("user@example.com"), eq(orderId));
             when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
                 Order order = invocation.getArgument(0);
                 if (order.getId() == null) {
@@ -120,6 +130,7 @@ class OrderServiceTest {
             assertThat(captor.getValue().getItems()).hasSize(1);
             assertThat(captor.getValue().getItems().getFirst().getProductName()).isEqualTo("Gaming Mouse");
             verify(inventoryClient).decrement(productId, 2);
+            verify(notificationClient).sendOrderCreated("user@example.com", orderId);
         }
 
         @Test

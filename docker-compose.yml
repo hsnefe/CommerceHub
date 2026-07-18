@@ -140,11 +140,18 @@ services:
       JWT_SECRET: dev-secret-key-change-in-production-min-32-chars
       PRODUCT_SERVICE_BASE_URL: http://product-service:8082
       INVENTORY_SERVICE_BASE_URL: http://inventory-service:8083
+      AUTH_SERVICE_BASE_URL: http://auth-service:8081
+      NOTIFICATION_SERVICE_BASE_URL: http://notification-service:8085
 
-  # notification-service:
-  #   build: ./services/notification-service
-  #   ports:
-  #     - "8085:8085"
+  notification-service:
+    build:
+      context: ./services
+      dockerfile: notification-service/Dockerfile
+    container_name: commercehub-notification-service
+    ports:
+      - "8085:8085"
+    environment:
+      JWT_SECRET: dev-secret-key-change-in-production-min-32-chars
 
 volumes:
   auth_pg_data:

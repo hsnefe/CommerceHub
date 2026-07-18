@@ -13,3 +13,7 @@ commercehub:
     base-url: http://localhost:8082
   inventory-service:
     base-url: http://localhost:8083
+  auth-service:
+    base-url: http://localhost:8081
+  notification-service:
+    base-url: http://localhost:8085
