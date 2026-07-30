@@ -1,6 +1,7 @@
 import * as productsApi from '../api/products';
 import { renderSessionBanner } from './session-banner';
 import { fillInventoryProductId } from './inventory-panel';
+import { fillOrderProductId } from './orders-panel';
 
 function field(label: string, id: string, type = 'text', value = ''): string {
   return `
@@ -153,4 +154,5 @@ export function fillProductId(productId: string): void {
     }
   }
   fillInventoryProductId(productId);
+  fillOrderProductId(productId);
 }

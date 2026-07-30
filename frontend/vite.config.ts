@@ -20,6 +20,14 @@ export default defineConfig({
         target: 'http://localhost:8083',
         changeOrigin: true,
       },
+      '/api/v1/orders': {
+        target: 'http://localhost:8084',
+        changeOrigin: true,
+      },
+      '/api/v1/notifications': {
+        target: 'http://localhost:8085',
+        changeOrigin: true,
+      },
     },
   },
 });

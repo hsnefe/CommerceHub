@@ -162,9 +162,101 @@ cd services
 mvn -pl inventory-service test
 ```
 
+## Order Service
+
+Order orchestration service for CommerceHub. Creates orders, snapshots product prices, decrements inventory, and best-effort notifies the user via notification-service. V1 statuses: `CREATED`, `CANCELLED`.
+
+### Endpoints
+
+| Method | Path | Access | Description |
+|--------|------|--------|-------------|
+| POST | `/api/v1/orders` | Authenticated | Create order (decrements stock, notifies user) |
+| GET | `/api/v1/orders/{orderId}` | Owner or ADMIN | Get order detail |
+| GET | `/api/v1/orders/user/{userId}` | Owner or ADMIN | List orders for a user |
+| DELETE | `/api/v1/orders/{orderId}` | Owner or ADMIN | Cancel order (increments stock back) |
+
+### Run with Docker Compose
+
+```bash
+docker compose up --build
+```
+
+- Auth Service: http://localhost:8081
+- Product Service: http://localhost:8082
+- Inventory Service: http://localhost:8083
+- Order Service: http://localhost:8084
+- Notification Service: http://localhost:8085
+- Auth Swagger UI: http://localhost:8081/swagger-ui.html
+- Product Swagger UI: http://localhost:8082/swagger-ui.html
+- Inventory Swagger UI: http://localhost:8083/swagger-ui.html
+- Order Swagger UI: http://localhost:8084/swagger-ui.html
+- Notification Swagger UI: http://localhost:8085/swagger-ui.html
+- Auth PostgreSQL: `localhost:5433` (user: `auth_user`, db: `auth_db`)
+- Product PostgreSQL: `localhost:5434` (user: `product_user`, db: `product_db`)
+- Inventory PostgreSQL: `localhost:5435` (user: `inventory_user`, db: `inventory_db`)
+- Order PostgreSQL: `localhost:5436` (user: `order_user`, db: `order_db`)
+
+### Run locally (requires Java 21+ and Maven)
+
+Start PostgreSQL first (or use `docker compose up auth-db product-db inventory-db order-db`), then:
+
+```bash
+cd services
+mvn -pl auth-service spring-boot:run
+# or
+mvn -pl product-service spring-boot:run
+# or
+mvn -pl inventory-service spring-boot:run
+# or
+mvn -pl order-service spring-boot:run
+# or
+mvn -pl notification-service spring-boot:run
+```
+
+Environment variables:
+
+| Variable | Auth | Product | Inventory | Order | Notification |
+|----------|------|---------|-----------|-------|--------------|
+| `SPRING_DATASOURCE_URL` | `...5433/auth_db` | `...5434/product_db` | `...5435/inventory_db` | `...5436/order_db` | — (no DB) |
+| `SPRING_DATASOURCE_USERNAME` | `auth_user` | `product_user` | `inventory_user` | `order_user` | — |
+| `SPRING_DATASOURCE_PASSWORD` | `auth_pass` | `product_pass` | `inventory_pass` | `order_pass` | — |
+| `JWT_SECRET` | (dev default) | Same as auth | Same as auth | Same as auth | Same as auth |
+| `PRODUCT_SERVICE_BASE_URL` | — | — | `http://localhost:8082` | `http://localhost:8082` | — |
+| `INVENTORY_SERVICE_BASE_URL` | — | — | — | `http://localhost:8083` | — |
+| `AUTH_SERVICE_BASE_URL` | — | — | — | `http://localhost:8081` | — |
+| `NOTIFICATION_SERVICE_BASE_URL` | — | — | — | `http://localhost:8085` | — |
+
+### Run tests
+
+```bash
+cd services
+mvn -pl order-service test
+```
+
+## Notification Service
+
+Lightweight notification service for CommerceHub. V1 simulates email delivery by logging the message (no database, no real SMTP).
+
+### Endpoints
+
+| Method | Path | Access | Description |
+|--------|------|--------|-------------|
+| POST | `/api/v1/notifications` | Public (V1) | Send notification (email simulation) |
+
+Request body: `{ "email", "subject", "message" }` → `{ "success": true }`.
+
+Order-service calls this after creating an order (best-effort; order still succeeds if notification fails).
+
+### Run tests
+
+```bash
+cd services
+mvn -pl notification-service test
+```
+
 ## Front-End Dev Console
 
-Manual API testing UI for auth-service, product-service, and inventory-service. Runs on `http://localhost:5173` (already allowed in backend CORS).
+Manual API testing UI for all V1 services. Runs on `http://localhost:5173` (already allowed in backend CORS).
 
 ### Setup
 
@@ -181,7 +273,7 @@ npm run dev
 
 Open http://localhost:5173
 
-The dev server proxies `/api/v1/auth` → auth-service (`8081`), `/api/v1/products` → product-service (`8082`), and `/api/v1/inventory` + `/internal/inventory` → inventory-service (`8083`), so login tokens from auth are sent automatically to protected endpoints on the same origin.
+The dev server proxies `/api/v1/auth` → auth-service (`8081`), `/api/v1/products` → product-service (`8082`), `/api/v1/inventory` + `/internal/inventory` → inventory-service (`8083`), `/api/v1/orders` → order-service (`8084`), and `/api/v1/notifications` → notification-service (`8085`), so login tokens from auth are sent automatically to protected endpoints on the same origin.
 
 ### Environment
 
@@ -190,6 +282,8 @@ The dev server proxies `/api/v1/auth` → auth-service (`8081`), `/api/v1/produc
 | `VITE_AUTH_API_URL` | empty (Vite proxy) |
 | `VITE_PRODUCT_API_URL` | empty (Vite proxy) |
 | `VITE_INVENTORY_API_URL` | empty (Vite proxy) |
+| `VITE_ORDER_API_URL` | empty (Vite proxy) |
+| `VITE_NOTIFICATION_API_URL` | empty (Vite proxy) |
 
 ### Manual test flow
 
@@ -199,4 +293,6 @@ The dev server proxies `/api/v1/auth` → auth-service (`8081`), `/api/v1/produc
 4. **Step 2 — Categories:** Create a category (ADMIN), click a row to copy its ID.
 5. **Step 3 — Products:** Create a product with that category ID, list and fetch by ID.
 6. **Step 4 — Inventory:** Create stock for the product ID (ADMIN), list, patch, or try internal increment/decrement.
-7. **Auth:** Logout to confirm protected endpoints return 401.
+7. **Step 5 — Orders:** Create an order with that product ID, list by user ID, fetch detail, or cancel (stock restored).
+8. **Step 6 — Notifications:** Send a manual email simulation, or confirm order-create triggers a log line in notification-service.
+9. **Auth:** Logout to confirm protected endpoints return 401.

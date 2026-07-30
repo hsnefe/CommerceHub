@@ -4,16 +4,20 @@ import { mountAuthPanel } from './auth-panel';
 import { mountProductsPanel } from './products-panel';
 import { mountCategoriesPanel } from './categories-panel';
 import { mountInventoryPanel } from './inventory-panel';
+import { mountOrdersPanel } from './orders-panel';
+import { mountNotificationsPanel } from './notifications-panel';
 import { mountResponsePanel, showResponse } from './response-panel';
 import { onWorkflowEvent } from '../state/workflow';
 
-type TabId = 'auth' | 'categories' | 'products' | 'inventory';
+type TabId = 'auth' | 'categories' | 'products' | 'inventory' | 'orders' | 'notifications';
 
 const tabs: { id: TabId; label: string }[] = [
   { id: 'auth', label: '1. Auth' },
   { id: 'categories', label: '2. Categories' },
   { id: 'products', label: '3. Products' },
   { id: 'inventory', label: '4. Inventory' },
+  { id: 'orders', label: '5. Orders' },
+  { id: 'notifications', label: '6. Notifications' },
 ];
 
 export function mountApp(root: HTMLElement): void {
@@ -64,6 +68,16 @@ export function mountApp(root: HTMLElement): void {
         <span class="step-no">4</span>
         <span>Stok ${admin ? '(yazma açık)' : loggedIn ? '(sadece okuma)' : ''}</span>
       </div>
+      <div class="workflow-arrow">→</div>
+      <div class="workflow-step ${activeTab === 'orders' ? 'active' : loggedIn ? 'ready' : 'locked'}">
+        <span class="step-no">5</span>
+        <span>Siparişler</span>
+      </div>
+      <div class="workflow-arrow">→</div>
+      <div class="workflow-step ${activeTab === 'notifications' ? 'active' : loggedIn ? 'ready' : 'locked'}">
+        <span class="step-no">6</span>
+        <span>Bildirimler</span>
+      </div>
     `;
   };
 
@@ -89,6 +103,10 @@ export function mountApp(root: HTMLElement): void {
       mountProductsPanel(panelSlot);
     } else if (tabId === 'inventory') {
       mountInventoryPanel(panelSlot);
+    } else if (tabId === 'orders') {
+      mountOrdersPanel(panelSlot);
+    } else if (tabId === 'notifications') {
+      mountNotificationsPanel(panelSlot);
     } else {
       mountCategoriesPanel(panelSlot);
     }

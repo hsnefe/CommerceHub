@@ -11,6 +11,8 @@ export interface ApiConfig {
   authBaseUrl: string;
   productBaseUrl: string;
   inventoryBaseUrl: string;
+  orderBaseUrl: string;
+  notificationBaseUrl: string;
 }
 
 interface RequestOptions extends RequestInit {
@@ -22,6 +24,8 @@ let config: ApiConfig = {
   authBaseUrl: import.meta.env.VITE_AUTH_API_URL ?? '',
   productBaseUrl: import.meta.env.VITE_PRODUCT_API_URL ?? '',
   inventoryBaseUrl: import.meta.env.VITE_INVENTORY_API_URL ?? '',
+  orderBaseUrl: import.meta.env.VITE_ORDER_API_URL ?? '',
+  notificationBaseUrl: import.meta.env.VITE_NOTIFICATION_API_URL ?? '',
 };
 
 type ResponseListener = (result: ApiResult) => void;
@@ -47,14 +51,17 @@ function notify(result: ApiResult): void {
   }
 }
 
-function resolveUrl(baseUrl: 'auth' | 'product' | 'inventory', path: string): string {
-  const root =
-    baseUrl === 'auth'
-      ? config.authBaseUrl
-      : baseUrl === 'product'
-        ? config.productBaseUrl
-        : config.inventoryBaseUrl;
-  return `${root}${path}`;
+type ServiceBase = 'auth' | 'product' | 'inventory' | 'order' | 'notification';
+
+function resolveUrl(baseUrl: ServiceBase, path: string): string {
+  const roots: Record<ServiceBase, string> = {
+    auth: config.authBaseUrl,
+    product: config.productBaseUrl,
+    inventory: config.inventoryBaseUrl,
+    order: config.orderBaseUrl,
+    notification: config.notificationBaseUrl,
+  };
+  return `${roots[baseUrl]}${path}`;
 }
 
 async function parseBody(response: Response): Promise<unknown> {
@@ -95,7 +102,7 @@ async function tryRefreshToken(): Promise<boolean> {
 }
 
 export async function apiRequest<T = unknown>(
-  baseUrl: 'auth' | 'product' | 'inventory',
+  baseUrl: ServiceBase,
   path: string,
   options: RequestOptions = {},
 ): Promise<ApiResult<T>> {
