@@ -32,8 +32,11 @@ public class AuthClient {
                 throw new NotFoundException("User not found");
             }
             return user.email();
-        } catch (HttpClientErrorException.NotFound ex) {
-            throw new NotFoundException("User not found");
+        } catch (HttpClientErrorException ex) {
+            if (ex.getStatusCode().value() == 404) {
+                throw new NotFoundException("User not found");
+            }
+            throw new ServiceUnavailableException("Auth service is unavailable");
         } catch (RestClientException ex) {
             throw new ServiceUnavailableException("Auth service is unavailable");
         }

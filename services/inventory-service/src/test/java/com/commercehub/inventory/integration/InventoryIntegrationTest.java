@@ -113,6 +113,19 @@ class InventoryIntegrationTest {
     }
 
     @Test
+    void createInventory_withMalformedProductId_returns400() throws Exception {
+        mockMvc.perform(post("/api/v1/inventory")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"productId":"not-a-uuid","availableQuantity":50,"lowStockThreshold":5}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.message").value("Malformed request body"));
+    }
+
+    @Test
     void createInventory_asUser_returns403() throws Exception {
         InventoryRequest request = new InventoryRequest(UUID.randomUUID(), 50, 5);
 

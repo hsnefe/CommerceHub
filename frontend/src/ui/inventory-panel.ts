@@ -2,6 +2,13 @@ import * as inventoryApi from '../api/inventory';
 import type { InventoryResponse } from '../api/inventory';
 import { renderSessionBanner } from './session-banner';
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
 function field(label: string, id: string, type = 'text', value = ''): string {
   return `
     <label for="${id}">
@@ -164,8 +171,13 @@ export function mountInventoryPanel(container: HTMLElement): void {
   container.querySelector('#create-inventory-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = event.target as HTMLFormElement;
+    const productId = (form.querySelector('#create-inventory-product-id') as HTMLInputElement).value.trim();
+    if (!isUuid(productId)) {
+      window.alert('Geçerli bir Ürün ID girin. Önce Products sekmesinden ürün oluşturup ID’yi buraya yapıştırın.');
+      return;
+    }
     await inventoryApi.createInventory({
-      productId: (form.querySelector('#create-inventory-product-id') as HTMLInputElement).value.trim(),
+      productId,
       availableQuantity: Number(
         (form.querySelector('#create-available-quantity') as HTMLInputElement).value,
       ),

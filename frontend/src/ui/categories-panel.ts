@@ -115,6 +115,11 @@ export function mountCategoriesPanel(container: HTMLElement): void {
     const name = (form.querySelector('#create-category-name') as HTMLInputElement).value.trim();
     const result = await productsApi.createCategory(name);
     if (result.ok) {
+      const created = result.data as CategoryResponse | undefined;
+      if (created?.id) {
+        fillProductCategoryId(created.id);
+        fillCategoryId(created.id);
+      }
       await loadCategories();
     }
   });

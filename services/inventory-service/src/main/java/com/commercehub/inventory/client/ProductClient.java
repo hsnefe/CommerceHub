@@ -28,8 +28,11 @@ public class ProductClient {
                     .uri(properties.getBaseUrl() + "/internal/products/{productId}", productId)
                     .retrieve()
                     .body(ProductSnapshotResponse.class);
-        } catch (HttpClientErrorException.NotFound ex) {
-            throw new NotFoundException("Product not found");
+        } catch (HttpClientErrorException ex) {
+            if (ex.getStatusCode().value() == 404) {
+                throw new NotFoundException("Product not found");
+            }
+            throw new ServiceUnavailableException("Product service is unavailable");
         } catch (RestClientException ex) {
             throw new ServiceUnavailableException("Product service is unavailable");
         }

@@ -32,8 +32,11 @@ public class ProductClient {
                 throw new NotFoundException("Product not found");
             }
             return snapshot;
-        } catch (HttpClientErrorException.NotFound ex) {
-            throw new NotFoundException("Product not found");
+        } catch (HttpClientErrorException ex) {
+            if (ex.getStatusCode().value() == 404) {
+                throw new NotFoundException("Product not found");
+            }
+            throw new ServiceUnavailableException("Product service is unavailable");
         } catch (RestClientException ex) {
             throw new ServiceUnavailableException("Product service is unavailable");
         }

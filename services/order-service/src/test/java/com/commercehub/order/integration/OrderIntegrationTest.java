@@ -108,6 +108,19 @@ class OrderIntegrationTest {
     }
 
     @Test
+    void createOrder_withMalformedProductId_returns400() throws Exception {
+        mockMvc.perform(post("/api/v1/orders")
+                        .header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"items":[{"productId":"not-a-uuid","quantity":1}]}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.message").value("Malformed request body"));
+    }
+
+    @Test
     void createGetListAndCancelOrder_flow() throws Exception {
         CreateOrderRequest request = new CreateOrderRequest(
                 List.of(new CreateOrderRequest.OrderItemRequest(PRODUCT_ID, 2))

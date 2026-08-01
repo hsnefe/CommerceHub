@@ -3,6 +3,13 @@ import type { OrderSummaryResponse } from '../api/orders';
 import { getCurrentUser } from './header';
 import { renderSessionBanner } from './session-banner';
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
 function field(label: string, id: string, type = 'text', value = ''): string {
   return `
     <label for="${id}">
@@ -131,6 +138,10 @@ export function mountOrdersPanel(container: HTMLElement): void {
     const form = event.target as HTMLFormElement;
     const productId = (form.querySelector('#create-order-product-id') as HTMLInputElement).value.trim();
     const quantity = Number((form.querySelector('#create-order-quantity') as HTMLInputElement).value);
+    if (!isUuid(productId)) {
+      window.alert('Geçerli bir Ürün ID girin. Önce Products sekmesinden ürün oluşturup ID’yi buraya yapıştırın.');
+      return;
+    }
     const result = await ordersApi.createOrder({
       items: [{ productId, quantity: Number.isFinite(quantity) ? quantity : 1 }],
     });

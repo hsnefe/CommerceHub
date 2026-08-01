@@ -3,6 +3,13 @@ import { renderSessionBanner } from './session-banner';
 import { fillInventoryProductId } from './inventory-panel';
 import { fillOrderProductId } from './orders-panel';
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
 function field(label: string, id: string, type = 'text', value = ''): string {
   return `
     <label for="${id}">
@@ -109,11 +116,16 @@ export function mountProductsPanel(container: HTMLElement): void {
   container.querySelector('#create-product-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = event.target as HTMLFormElement;
+    const categoryId = (form.querySelector('#create-category-id') as HTMLInputElement).value.trim();
+    if (!isUuid(categoryId)) {
+      window.alert('Geçerli bir Kategori ID girin. Önce Categories sekmesinden kategori oluşturup ID’yi buraya yapıştırın.');
+      return;
+    }
     await productsApi.createProduct({
       name: (form.querySelector('#create-name') as HTMLInputElement).value.trim(),
       description: (form.querySelector('#create-description') as HTMLInputElement).value.trim(),
       price: Number((form.querySelector('#create-price') as HTMLInputElement).value),
-      categoryId: (form.querySelector('#create-category-id') as HTMLInputElement).value.trim(),
+      categoryId,
     });
   });
 

@@ -174,12 +174,13 @@ class NotificationIntegrationTest {
         }
 
         @Test
-        void sendNotification_malformedJson_returnsInternalServerError() throws Exception {
+        void sendNotification_malformedJson_returnsBadRequest() throws Exception {
             mockMvc.perform(post("/api/v1/notifications")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{invalid-json"))
-                    .andExpect(status().isInternalServerError())
-                    .andExpect(jsonPath("$.error").value("INTERNAL_SERVER_ERROR"));
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error").value("BAD_REQUEST"))
+                    .andExpect(jsonPath("$.message").value("Malformed request body"));
         }
     }
 

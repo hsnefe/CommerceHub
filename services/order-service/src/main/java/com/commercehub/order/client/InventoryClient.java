@@ -39,9 +39,10 @@ public class InventoryClient {
                     .body(new QuantityAdjustmentRequest(amount))
                     .retrieve()
                     .toBodilessEntity();
-        } catch (HttpClientErrorException.NotFound ex) {
-            throw new NotFoundException("Inventory record not found");
         } catch (HttpClientErrorException ex) {
+            if (ex.getStatusCode().value() == 404) {
+                throw new NotFoundException("Inventory record not found");
+            }
             if (ex.getStatusCode() == HttpStatus.CONFLICT) {
                 throw new ConflictException("Insufficient stock");
             }

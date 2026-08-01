@@ -92,6 +92,19 @@ class ProductIntegrationTest {
     }
 
     @Test
+    void createProduct_withMalformedCategoryId_returns400() throws Exception {
+        mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Mouse","description":"Desc","price":100.00,"categoryId":"not-a-uuid"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.message").value("Malformed request body"));
+    }
+
+    @Test
     void createProduct_asUser_returns403() throws Exception {
         ProductRequest request = new ProductRequest(
                 "Mouse",
