@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CommerceHub — User</title>
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body class="dashboard" data-role="user">
+    <header class="topbar">
+      <div class="topbar-user" id="session-email"></div>
+      <div class="topbar-meta">
+        <button id="orders-btn" type="button" class="btn btn-ghost">Orders</button>
+        <button id="logout-btn" type="button" class="btn btn-ghost">Logout</button>
+      </div>
+    </header>
+
+    <main class="dashboard-main dashboard-main-fill">
+      <section id="view-catalog" class="catalog-layout">
+        <aside class="category-sidebar" aria-label="Categories">
+          <h2 class="sidebar-title">Categories</h2>
+          <nav id="category-list" class="category-list">
+            <p class="hint">Loading categories…</p>
+          </nav>
+        </aside>
+
+        <div class="catalog-content">
+          <div id="product-status" class="status-line" hidden></div>
+          <div id="product-grid" class="product-grid"></div>
+          <div class="pagination">
+            <button id="page-prev" type="button" class="btn btn-ghost" disabled>Previous</button>
+            <span id="page-label" class="page-label">Page 1</span>
+            <button id="page-next" type="button" class="btn btn-ghost" disabled>Next</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-orders" class="orders-layout" hidden>
+        <div class="orders-toolbar">
+          <button id="back-to-shop" type="button" class="btn btn-ghost">Back to shop</button>
+          <h1 class="orders-title">Your orders</h1>
+        </div>
+        <div class="orders-body">
+          <div id="orders-list" class="orders-list">
+            <p class="hint">Loading orders…</p>
+          </div>
+          <div id="order-detail" class="order-detail" hidden>
+            <p class="hint">Select an order to see details.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div id="order-modal" class="modal" hidden>
+      <div class="modal-backdrop" data-close-modal></div>
+      <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="order-modal-title">
+        <h2 id="order-modal-title" class="modal-title">Place order</h2>
+        <p id="order-modal-product" class="modal-product"></p>
+        <p id="order-modal-price" class="modal-price"></p>
+        <div class="qty-row">
+          <span class="qty-label">Quantity</span>
+          <div class="qty-controls">
+            <button id="qty-minus" type="button" class="btn btn-ghost qty-btn" aria-label="Decrease">
+              −
+            </button>
+            <input id="order-qty" type="number" min="1" max="99" value="1" />
+            <button id="qty-plus" type="button" class="btn btn-ghost qty-btn" aria-label="Increase">
+              +
+            </button>
+          </div>
+        </div>
+        <p id="order-modal-error" class="form-error" hidden></p>
+        <div class="modal-actions">
+          <button id="order-cancel" type="button" class="btn btn-ghost" data-close-modal>
+            Cancel
+          </button>
+          <button id="order-confirm" type="button" class="btn btn-primary">Confirm order</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="js/dashboard.js"></script>
+  </body>
+</html>

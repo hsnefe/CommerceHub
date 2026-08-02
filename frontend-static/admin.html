@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CommerceHub — Admin</title>
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body class="dashboard" data-role="admin">
+    <header class="topbar">
+      <div class="topbar-user" id="session-email"></div>
+      <div class="topbar-meta">
+        <span class="role-badge">Admin</span>
+        <button id="logout-btn" type="button" class="btn btn-ghost">Logout</button>
+      </div>
+    </header>
+
+    <main class="dashboard-main dashboard-main-fill">
+      <div class="admin-layout">
+        <aside class="admin-sidebar" aria-label="Admin sections">
+          <h2 class="sidebar-title">Manage</h2>
+          <nav class="admin-nav">
+            <button type="button" class="category-item active" data-panel="categories">
+              Categories
+            </button>
+            <button type="button" class="category-item" data-panel="products">Products</button>
+            <button type="button" class="category-item" data-panel="inventory">Inventory</button>
+          </nav>
+        </aside>
+
+        <div class="admin-content">
+          <section id="panel-categories" class="admin-panel">
+            <div class="admin-panel-header">
+              <h1>Categories</h1>
+              <p class="hint">Create, rename, or delete product categories.</p>
+            </div>
+            <p id="categories-status" class="status-line" hidden></p>
+            <form id="category-form" class="admin-form">
+              <input type="hidden" id="category-id" value="" />
+              <div class="field">
+                <label for="category-name">Name</label>
+                <input id="category-name" name="name" type="text" required placeholder="Electronics" />
+              </div>
+              <div class="admin-form-actions">
+                <button type="submit" class="btn btn-primary admin-btn" id="category-submit">
+                  Create category
+                </button>
+                <button type="button" class="btn btn-ghost" id="category-reset" hidden>Cancel edit</button>
+              </div>
+            </form>
+            <div id="categories-table" class="admin-table-wrap">
+              <p class="hint">Loading…</p>
+            </div>
+          </section>
+
+          <section id="panel-products" class="admin-panel" hidden>
+            <div class="admin-panel-header">
+              <h1>Products</h1>
+              <p class="hint">Create and manage catalog products.</p>
+            </div>
+            <p id="products-status" class="status-line" hidden></p>
+            <form id="product-form" class="admin-form">
+              <input type="hidden" id="product-id" value="" />
+              <div class="admin-form-grid">
+                <div class="field">
+                  <label for="product-name">Name</label>
+                  <input id="product-name" type="text" required placeholder="Wireless Mouse" />
+                </div>
+                <div class="field">
+                  <label for="product-price">Price</label>
+                  <input id="product-price" type="number" min="0.01" step="0.01" required placeholder="99.90" />
+                </div>
+                <div class="field field-span">
+                  <label for="product-description">Description</label>
+                  <input id="product-description" type="text" placeholder="Optional" />
+                </div>
+                <div class="field field-span">
+                  <label for="product-category-id">Category</label>
+                  <select id="product-category-id" required>
+                    <option value="">Select category</option>
+                  </select>
+                </div>
+              </div>
+              <div class="admin-form-actions">
+                <button type="submit" class="btn btn-primary admin-btn" id="product-submit">
+                  Create product
+                </button>
+                <button type="button" class="btn btn-ghost" id="product-reset" hidden>Cancel edit</button>
+              </div>
+            </form>
+            <div class="pagination admin-pagination">
+              <button id="products-prev" type="button" class="btn btn-ghost" disabled>Previous</button>
+              <span id="products-page-label" class="page-label">Page 1</span>
+              <button id="products-next" type="button" class="btn btn-ghost" disabled>Next</button>
+            </div>
+            <div id="products-table" class="admin-table-wrap">
+              <p class="hint">Loading…</p>
+            </div>
+          </section>
+
+          <section id="panel-inventory" class="admin-panel" hidden>
+            <div class="admin-panel-header">
+              <h1>Inventory</h1>
+              <p class="hint">Set stock levels for products.</p>
+            </div>
+            <p id="inventory-status" class="status-line" hidden></p>
+            <form id="inventory-form" class="admin-form">
+              <input type="hidden" id="inventory-edit-mode" value="" />
+              <div class="admin-form-grid">
+                <div class="field field-span">
+                  <label for="inventory-product-id">Product ID</label>
+                  <input
+                    id="inventory-product-id"
+                    type="text"
+                    required
+                    placeholder="Paste product UUID or pick from Products"
+                  />
+                </div>
+                <div class="field">
+                  <label for="inventory-qty">Available quantity</label>
+                  <input id="inventory-qty" type="number" min="0" step="1" required value="100" />
+                </div>
+                <div class="field">
+                  <label for="inventory-threshold">Low-stock threshold</label>
+                  <input id="inventory-threshold" type="number" min="0" step="1" required value="10" />
+                </div>
+              </div>
+              <div class="admin-form-actions">
+                <button type="submit" class="btn btn-primary admin-btn" id="inventory-submit">
+                  Create stock
+                </button>
+                <button type="button" class="btn btn-ghost" id="inventory-reset" hidden>Cancel edit</button>
+              </div>
+            </form>
+            <div class="pagination admin-pagination">
+              <button id="inventory-prev" type="button" class="btn btn-ghost" disabled>Previous</button>
+              <span id="inventory-page-label" class="page-label">Page 1</span>
+              <button id="inventory-next" type="button" class="btn btn-ghost" disabled>Next</button>
+            </div>
+            <div id="inventory-table" class="admin-table-wrap">
+              <p class="hint">Loading…</p>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <script type="module" src="js/admin-dashboard.js"></script>
+  </body>
+</html>
