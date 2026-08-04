@@ -20,6 +20,7 @@ import com.commercehub.order.exception.ConflictException;
 import com.commercehub.order.exception.ForbiddenException;
 import com.commercehub.order.exception.NotFoundException;
 import com.commercehub.order.repository.OrderRepository;
+import com.commercehub.order.state.OrderStateMachine;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -39,17 +40,20 @@ public class OrderService {
     private final ProductClient productClient;
     private final AuthClient authClient;
     private final DomainEventPublisher domainEventPublisher;
+    private final OrderStateMachine orderStateMachine;
 
     public OrderService(
             OrderRepository orderRepository,
             ProductClient productClient,
             AuthClient authClient,
-            DomainEventPublisher domainEventPublisher
+            DomainEventPublisher domainEventPublisher,
+            OrderStateMachine orderStateMachine
     ) {
         this.orderRepository = orderRepository;
         this.productClient = productClient;
         this.authClient = authClient;
         this.domainEventPublisher = domainEventPublisher;
+        this.orderStateMachine = orderStateMachine;
     }
 
     @Transactional
@@ -138,18 +142,11 @@ public class OrderService {
                 .orElseThrow(() -> new NotFoundException("Order not found"));
         assertCanAccess(order, requesterId, admin);
 
-        if (order.getStatus() == OrderStatus.CANCELLED) {
-            throw new ConflictException("Order is already cancelled");
-        }
-        if (order.getStatus() != OrderStatus.CREATED && order.getStatus() != OrderStatus.STOCK_RESERVED) {
-            throw new ConflictException("Order cannot be cancelled");
-        }
-
         List<OrderItemPayload> eventItems = order.getItems().stream()
                 .map(item -> new OrderItemPayload(item.getProductId(), item.getQuantity()))
                 .toList();
 
-        order.setStatus(OrderStatus.CANCELLED);
+        orderStateMachine.transition(order, OrderStatus.CANCELLED);
         Order saved = orderRepository.save(order);
 
         publishAfterCommit(
@@ -173,8 +170,24 @@ public class OrderService {
         if (order.getStatus() != OrderStatus.CREATED) {
             return;
         }
-        order.setStatus(OrderStatus.STOCK_RESERVED);
+        orderStateMachine.transition(order, OrderStatus.STOCK_RESERVED);
         orderRepository.save(order);
+    }
+
+    @Transactional
+    public OrderDetailResponse transitionStatus(UUID orderId, OrderStatus target, boolean admin) {
+        if (!admin) {
+            throw new ForbiddenException("Access denied");
+        }
+        if (target == OrderStatus.STOCK_RESERVED || target == OrderStatus.CANCELLED || target == OrderStatus.CREATED) {
+            throw new ConflictException("Status " + target + " cannot be set via this endpoint");
+        }
+
+        Order order = orderRepository.findWithItemsById(orderId)
+                .orElseThrow(() -> new NotFoundException("Order not found"));
+        orderStateMachine.transition(order, target);
+        Order saved = orderRepository.save(order);
+        return toDetail(saved);
     }
 
     private void publishAfterCommit(String routingKey, Object event) {

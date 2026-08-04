@@ -5,6 +5,7 @@ import com.commercehub.order.dto.CreateOrderRequest;
 import com.commercehub.order.dto.CreateOrderResponse;
 import com.commercehub.order.dto.OrderDetailResponse;
 import com.commercehub.order.dto.OrderSummaryResponse;
+import com.commercehub.order.dto.UpdateOrderStatusRequest;
 import com.commercehub.order.service.OrderService;
 import com.commercehub.security.JwtPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,6 +18,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -75,6 +77,18 @@ public class OrderController {
             Authentication authentication
     ) {
         return ResponseEntity.ok(orderService.cancel(orderId, principal.getId(), isAdmin(authentication)));
+    }
+
+    @PatchMapping("/{orderId}/status")
+    @Operation(summary = "Transition order status (ADMIN)")
+    public ResponseEntity<OrderDetailResponse> updateStatus(
+            @PathVariable UUID orderId,
+            @Valid @RequestBody UpdateOrderStatusRequest request,
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(
+                orderService.transitionStatus(orderId, request.status(), isAdmin(authentication))
+        );
     }
 
     private boolean isAdmin(Authentication authentication) {

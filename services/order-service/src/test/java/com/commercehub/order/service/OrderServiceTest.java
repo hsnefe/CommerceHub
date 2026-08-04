@@ -19,12 +19,14 @@ import com.commercehub.order.exception.ConflictException;
 import com.commercehub.order.exception.ForbiddenException;
 import com.commercehub.order.exception.NotFoundException;
 import com.commercehub.order.repository.OrderRepository;
+import com.commercehub.order.state.OrderStateMachine;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -55,6 +57,9 @@ class OrderServiceTest {
 
     @Mock
     private DomainEventPublisher domainEventPublisher;
+
+    @Spy
+    private OrderStateMachine orderStateMachine = new OrderStateMachine();
 
     @InjectMocks
     private OrderService orderService;
@@ -243,10 +248,44 @@ class OrderServiceTest {
         }
 
         @Test
+        void cancel_paid_throwsConflict() {
+            Order order = sampleOrder();
+            order.setStatus(OrderStatus.PAID);
+            when(orderRepository.findWithItemsById(orderId)).thenReturn(Optional.of(order));
+
+            assertThatThrownBy(() -> orderService.cancel(orderId, userId, false))
+                    .isInstanceOf(ConflictException.class);
+
+            verify(domainEventPublisher, never()).publish(any(), any());
+        }
+
+        @Test
         void cancel_otherUser_throwsForbidden() {
             when(orderRepository.findWithItemsById(orderId)).thenReturn(Optional.of(sampleOrder()));
 
             assertThatThrownBy(() -> orderService.cancel(orderId, otherUserId, false))
+                    .isInstanceOf(ForbiddenException.class);
+        }
+    }
+
+    @Nested
+    class TransitionStatus {
+
+        @Test
+        void transitionStatus_admin_paidFromStockReserved() {
+            Order order = sampleOrder();
+            order.setStatus(OrderStatus.STOCK_RESERVED);
+            when(orderRepository.findWithItemsById(orderId)).thenReturn(Optional.of(order));
+            when(orderRepository.save(order)).thenReturn(order);
+
+            OrderDetailResponse response = orderService.transitionStatus(orderId, OrderStatus.PAID, true);
+
+            assertThat(response.status()).isEqualTo("PAID");
+        }
+
+        @Test
+        void transitionStatus_nonAdmin_throwsForbidden() {
+            assertThatThrownBy(() -> orderService.transitionStatus(orderId, OrderStatus.PAID, false))
                     .isInstanceOf(ForbiddenException.class);
         }
     }
