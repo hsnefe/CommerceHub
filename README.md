@@ -254,6 +254,45 @@ cd services
 mvn -pl notification-service test
 ```
 
+## V2 Messaging Infrastructure (RabbitMQ)
+
+V2 foundation for event-driven workflows. Order, inventory, and notification services connect to RabbitMQ and declare the shared topology on startup. **Publishers and consumers are not wired yet** — order creation still uses synchronous REST.
+
+### Broker
+
+| Item | Value |
+|------|--------|
+| AMQP | `localhost:5672` |
+| Management UI | http://localhost:15672 |
+| User / password | `commercehub` / `commercehub` |
+
+Start only the broker:
+
+```bash
+docker compose up rabbitmq -d
+```
+
+### Topology (`common-messaging`)
+
+| Kind | Name |
+|------|------|
+| Exchange | `commercehub.events` (topic, durable) |
+| Routing keys | `order.created`, `order.cancelled`, `stock.reserved`, `stock.released` |
+| Queues | `inventory.order-created`, `inventory.order-cancelled`, `notification.order-events` (`order.#`), `notification.stock-events` (`stock.#`) |
+
+Shared event records live in `services/common-messaging` (`OrderCreatedEvent`, `OrderCancelledEvent`, `StockReservedEvent`, `StockReleasedEvent`).
+
+### Environment (order / inventory / notification)
+
+| Variable | Default (local) |
+|----------|-----------------|
+| `SPRING_RABBITMQ_HOST` | `localhost` |
+| `SPRING_RABBITMQ_PORT` | `5672` |
+| `SPRING_RABBITMQ_USERNAME` | `commercehub` |
+| `SPRING_RABBITMQ_PASSWORD` | `commercehub` |
+
+In Docker Compose these point at the `rabbitmq` service.
+
 ## Front-End Dev Console
 
 Manual API testing UI for all V1 services. Runs on `http://localhost:5173` (already allowed in backend CORS).
