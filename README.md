@@ -92,7 +92,7 @@ Use the JWT from auth-service login to call ADMIN-only product endpoints.
 
 ## Inventory Service
 
-Inventory management service for CommerceHub. Tracks per-product stock levels, low-stock thresholds, and exposes internal increment/decrement endpoints for order processing.
+Inventory management service for CommerceHub. Tracks per-product available and reserved stock, low-stock thresholds, and admin increment/decrement endpoints. Order stock changes happen via RabbitMQ reserve/release (not sync REST).
 
 ### Endpoints
 
@@ -102,8 +102,8 @@ Inventory management service for CommerceHub. Tracks per-product stock levels, l
 | GET | `/api/v1/inventory/{productId}` | Public | Get stock for a product |
 | POST | `/api/v1/inventory` | ADMIN | Create inventory record (validates product via product-service) |
 | PATCH | `/api/v1/inventory/{productId}` | ADMIN | Update quantity and/or low-stock threshold |
-| POST | `/internal/inventory/{productId}/decrement` | Internal (V1 open) | Decrement stock for orders |
-| POST | `/internal/inventory/{productId}/increment` | Internal (V1 open) | Increment stock for cancellations/returns |
+| POST | `/internal/inventory/{productId}/decrement` | Internal | Manual decrement (admin/tools) |
+| POST | `/internal/inventory/{productId}/increment` | Internal | Manual increment (admin/tools) |
 
 ### Seed data
 
@@ -164,16 +164,16 @@ mvn -pl inventory-service test
 
 ## Order Service
 
-Order orchestration service for CommerceHub. Creates orders, snapshots product prices, decrements inventory, and best-effort notifies the user via notification-service. V1 statuses: `CREATED`, `CANCELLED`.
+Order orchestration service for CommerceHub. Creates orders, snapshots product prices, and publishes domain events. Stock reservation and notifications are asynchronous via RabbitMQ. Statuses: `CREATED`, `STOCK_RESERVED`, `CANCELLED`.
 
 ### Endpoints
 
 | Method | Path | Access | Description |
 |--------|------|--------|-------------|
-| POST | `/api/v1/orders` | Authenticated | Create order (decrements stock, notifies user) |
+| POST | `/api/v1/orders` | Authenticated | Create order (`CREATED`, publishes `OrderCreatedEvent`) |
 | GET | `/api/v1/orders/{orderId}` | Owner or ADMIN | Get order detail |
 | GET | `/api/v1/orders/user/{userId}` | Owner or ADMIN | List orders for a user |
-| DELETE | `/api/v1/orders/{orderId}` | Owner or ADMIN | Cancel order (increments stock back) |
+| DELETE | `/api/v1/orders/{orderId}` | Owner or ADMIN | Cancel order (publishes `OrderCancelledEvent`) |
 
 ### Run with Docker Compose
 
@@ -222,9 +222,8 @@ Environment variables:
 | `SPRING_DATASOURCE_PASSWORD` | `auth_pass` | `product_pass` | `inventory_pass` | `order_pass` | — |
 | `JWT_SECRET` | (dev default) | Same as auth | Same as auth | Same as auth | Same as auth |
 | `PRODUCT_SERVICE_BASE_URL` | — | — | `http://localhost:8082` | `http://localhost:8082` | — |
-| `INVENTORY_SERVICE_BASE_URL` | — | — | — | `http://localhost:8083` | — |
 | `AUTH_SERVICE_BASE_URL` | — | — | — | `http://localhost:8081` | — |
-| `NOTIFICATION_SERVICE_BASE_URL` | — | — | — | `http://localhost:8085` | — |
+| `SPRING_RABBITMQ_*` | — | — | yes | yes | yes |
 
 ### Run tests
 
@@ -235,17 +234,15 @@ mvn -pl order-service test
 
 ## Notification Service
 
-Lightweight notification service for CommerceHub. V1 simulates email delivery by logging the message (no database, no real SMTP).
+Lightweight notification service for CommerceHub. Simulates email delivery by logging the message (no database, no real SMTP). Consumes order and stock domain events from RabbitMQ; HTTP endpoint remains for manual testing.
 
 ### Endpoints
 
 | Method | Path | Access | Description |
 |--------|------|--------|-------------|
-| POST | `/api/v1/notifications` | Public (V1) | Send notification (email simulation) |
+| POST | `/api/v1/notifications` | Public | Send notification (email simulation) |
 
 Request body: `{ "email", "subject", "message" }` → `{ "success": true }`.
-
-Order-service calls this after creating an order (best-effort; order still succeeds if notification fails).
 
 ### Run tests
 
@@ -254,9 +251,19 @@ cd services
 mvn -pl notification-service test
 ```
 
-## V2 Messaging Infrastructure (RabbitMQ)
+## V2 Messaging (RabbitMQ + Domain Events)
 
-V2 foundation for event-driven workflows. Order, inventory, and notification services connect to RabbitMQ and declare the shared topology on startup. **Publishers and consumers are not wired yet** — order creation still uses synchronous REST.
+Event-driven order/inventory/notification flow on top of the RabbitMQ broker.
+
+### Flow
+
+1. Order create → `OrderCreatedEvent` (includes user email)
+2. Inventory reserves stock (`available` ↓, `reserved` ↑) → `StockReservedEvent`
+3. Order status → `STOCK_RESERVED`
+4. Notification logs order/stock emails
+5. Order cancel → `OrderCancelledEvent` → inventory release → `StockReleasedEvent`
+
+Product price snapshot remains a synchronous REST call from order-service.
 
 ### Broker
 
@@ -278,7 +285,7 @@ docker compose up rabbitmq -d
 |------|------|
 | Exchange | `commercehub.events` (topic, durable) |
 | Routing keys | `order.created`, `order.cancelled`, `stock.reserved`, `stock.released` |
-| Queues | `inventory.order-created`, `inventory.order-cancelled`, `notification.order-events` (`order.#`), `notification.stock-events` (`stock.#`) |
+| Queues | `inventory.order-created`, `inventory.order-cancelled`, `order.stock-reserved`, `notification.order-events` (`order.#`), `notification.stock-events` (`stock.#`) |
 
 Shared event records live in `services/common-messaging` (`OrderCreatedEvent`, `OrderCancelledEvent`, `StockReservedEvent`, `StockReleasedEvent`).
 
