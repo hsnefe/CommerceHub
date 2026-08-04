@@ -1,4 +1,19 @@
 services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: commercehub-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: commercehub
+      RABBITMQ_DEFAULT_PASS: commercehub
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   auth-db:
     image: postgres:16
     container_name: commercehub-auth-db
@@ -95,12 +110,18 @@ services:
         condition: service_healthy
       product-service:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://inventory-db:5432/inventory_db
       SPRING_DATASOURCE_USERNAME: inventory_user
       SPRING_DATASOURCE_PASSWORD: inventory_pass
       JWT_SECRET: dev-secret-key-change-in-production-min-32-chars
       PRODUCT_SERVICE_BASE_URL: http://product-service:8082
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: "5672"
+      SPRING_RABBITMQ_USERNAME: commercehub
+      SPRING_RABBITMQ_PASSWORD: commercehub
 
   order-db:
     image: postgres:16
@@ -133,6 +154,8 @@ services:
         condition: service_started
       inventory-service:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://order-db:5432/order_db
       SPRING_DATASOURCE_USERNAME: order_user
@@ -142,6 +165,10 @@ services:
       INVENTORY_SERVICE_BASE_URL: http://inventory-service:8083
       AUTH_SERVICE_BASE_URL: http://auth-service:8081
       NOTIFICATION_SERVICE_BASE_URL: http://notification-service:8085
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: "5672"
+      SPRING_RABBITMQ_USERNAME: commercehub
+      SPRING_RABBITMQ_PASSWORD: commercehub
 
   notification-service:
     build:
@@ -150,8 +177,15 @@ services:
     container_name: commercehub-notification-service
     ports:
       - "8085:8085"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
     environment:
       JWT_SECRET: dev-secret-key-change-in-production-min-32-chars
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: "5672"
+      SPRING_RABBITMQ_USERNAME: commercehub
+      SPRING_RABBITMQ_PASSWORD: commercehub
 
 volumes:
   auth_pg_data:
