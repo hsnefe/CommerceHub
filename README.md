@@ -164,7 +164,9 @@ mvn -pl inventory-service test
 
 ## Order Service
 
-Order orchestration service for CommerceHub. Creates orders, snapshots product prices, and publishes domain events. Stock reservation and notifications are asynchronous via RabbitMQ. Statuses: `CREATED`, `STOCK_RESERVED`, `CANCELLED`.
+Order orchestration service for CommerceHub. Creates orders, snapshots product prices, and publishes domain events. Stock reservation and notifications are asynchronous via RabbitMQ.
+
+Statuses (State Pattern): `CREATED` → `STOCK_RESERVED` → `PAID` → `PREPARING` → `SHIPPED` → `DELIVERED`, plus `CANCELLED` from `CREATED`/`STOCK_RESERVED`.
 
 ### Endpoints
 
@@ -174,6 +176,7 @@ Order orchestration service for CommerceHub. Creates orders, snapshots product p
 | GET | `/api/v1/orders/{orderId}` | Owner or ADMIN | Get order detail |
 | GET | `/api/v1/orders/user/{userId}` | Owner or ADMIN | List orders for a user |
 | DELETE | `/api/v1/orders/{orderId}` | Owner or ADMIN | Cancel order (publishes `OrderCancelledEvent`) |
+| PATCH | `/api/v1/orders/{orderId}/status` | ADMIN | Transition status (`{ "status": "PAID" }`, etc.) |
 
 ### Run with Docker Compose
 
@@ -186,15 +189,18 @@ docker compose up --build
 - Inventory Service: http://localhost:8083
 - Order Service: http://localhost:8084
 - Notification Service: http://localhost:8085
+- Analytics Service: http://localhost:8086
 - Auth Swagger UI: http://localhost:8081/swagger-ui.html
 - Product Swagger UI: http://localhost:8082/swagger-ui.html
 - Inventory Swagger UI: http://localhost:8083/swagger-ui.html
 - Order Swagger UI: http://localhost:8084/swagger-ui.html
 - Notification Swagger UI: http://localhost:8085/swagger-ui.html
+- Analytics Swagger UI: http://localhost:8086/swagger-ui.html
 - Auth PostgreSQL: `localhost:5433` (user: `auth_user`, db: `auth_db`)
 - Product PostgreSQL: `localhost:5434` (user: `product_user`, db: `product_db`)
 - Inventory PostgreSQL: `localhost:5435` (user: `inventory_user`, db: `inventory_db`)
 - Order PostgreSQL: `localhost:5436` (user: `order_user`, db: `order_db`)
+- Analytics PostgreSQL: `localhost:5437` (user: `analytics_user`, db: `analytics_db`)
 
 ### Run locally (requires Java 21+ and Maven)
 
@@ -211,19 +217,21 @@ mvn -pl inventory-service spring-boot:run
 mvn -pl order-service spring-boot:run
 # or
 mvn -pl notification-service spring-boot:run
+# or
+mvn -pl analytics-service spring-boot:run
 ```
 
 Environment variables:
 
-| Variable | Auth | Product | Inventory | Order | Notification |
-|----------|------|---------|-----------|-------|--------------|
-| `SPRING_DATASOURCE_URL` | `...5433/auth_db` | `...5434/product_db` | `...5435/inventory_db` | `...5436/order_db` | — (no DB) |
-| `SPRING_DATASOURCE_USERNAME` | `auth_user` | `product_user` | `inventory_user` | `order_user` | — |
-| `SPRING_DATASOURCE_PASSWORD` | `auth_pass` | `product_pass` | `inventory_pass` | `order_pass` | — |
-| `JWT_SECRET` | (dev default) | Same as auth | Same as auth | Same as auth | Same as auth |
-| `PRODUCT_SERVICE_BASE_URL` | — | — | `http://localhost:8082` | `http://localhost:8082` | — |
-| `AUTH_SERVICE_BASE_URL` | — | — | — | `http://localhost:8081` | — |
-| `SPRING_RABBITMQ_*` | — | — | yes | yes | yes |
+| Variable | Auth | Product | Inventory | Order | Notification | Analytics |
+|----------|------|---------|-----------|-------|--------------|-----------|
+| `SPRING_DATASOURCE_URL` | `...5433/auth_db` | `...5434/product_db` | `...5435/inventory_db` | `...5436/order_db` | — | `...5437/analytics_db` |
+| `SPRING_DATASOURCE_USERNAME` | `auth_user` | `product_user` | `inventory_user` | `order_user` | — | `analytics_user` |
+| `SPRING_DATASOURCE_PASSWORD` | `auth_pass` | `product_pass` | `inventory_pass` | `order_pass` | — | `analytics_pass` |
+| `JWT_SECRET` | (dev default) | Same as auth | Same as auth | Same as auth | Same as auth | Same as auth |
+| `PRODUCT_SERVICE_BASE_URL` | — | — | `http://localhost:8082` | `http://localhost:8082` | — | — |
+| `AUTH_SERVICE_BASE_URL` | — | — | — | `http://localhost:8081` | — | — |
+| `SPRING_RABBITMQ_*` | — | — | yes | yes | yes | yes |
 
 ### Run tests
 
@@ -251,17 +259,36 @@ cd services
 mvn -pl notification-service test
 ```
 
+## Analytics Service
+
+Collects domain events from RabbitMQ for logging and simple business metrics. Own PostgreSQL database (`analytics_db`).
+
+### Endpoints
+
+| Method | Path | Access | Description |
+|--------|------|--------|-------------|
+| GET | `/api/v1/analytics/events` | Authenticated | List recorded events (`?page=0&size=20`) |
+| GET | `/api/v1/analytics/stats` | ADMIN | Counts: ordersCreated, ordersCancelled, stockReserved, stockReleased |
+
+### Run tests
+
+```bash
+cd services
+mvn -pl analytics-service test
+```
+
 ## V2 Messaging (RabbitMQ + Domain Events)
 
-Event-driven order/inventory/notification flow on top of the RabbitMQ broker.
+Event-driven order/inventory/notification/analytics flow on top of the RabbitMQ broker.
 
 ### Flow
 
 1. Order create → `OrderCreatedEvent` (includes user email)
 2. Inventory reserves stock (`available` ↓, `reserved` ↑) → `StockReservedEvent`
-3. Order status → `STOCK_RESERVED`
-4. Notification logs order/stock emails
-5. Order cancel → `OrderCancelledEvent` → inventory release → `StockReleasedEvent`
+3. Order status → `STOCK_RESERVED` (State Pattern)
+4. ADMIN may advance `PAID` → `PREPARING` → `SHIPPED` → `DELIVERED`
+5. Notification logs order/stock emails; Analytics persists all events
+6. Order cancel (from `CREATED`/`STOCK_RESERVED`) → `OrderCancelledEvent` → inventory release → `StockReleasedEvent`
 
 Product price snapshot remains a synchronous REST call from order-service.
 
@@ -285,11 +312,11 @@ docker compose up rabbitmq -d
 |------|------|
 | Exchange | `commercehub.events` (topic, durable) |
 | Routing keys | `order.created`, `order.cancelled`, `stock.reserved`, `stock.released` |
-| Queues | `inventory.order-created`, `inventory.order-cancelled`, `order.stock-reserved`, `notification.order-events` (`order.#`), `notification.stock-events` (`stock.#`) |
+| Queues | `inventory.order-created`, `inventory.order-cancelled`, `order.stock-reserved`, `notification.order-events` (`order.#`), `notification.stock-events` (`stock.#`), `analytics.events` (`order.#` + `stock.#`) |
 
 Shared event records live in `services/common-messaging` (`OrderCreatedEvent`, `OrderCancelledEvent`, `StockReservedEvent`, `StockReleasedEvent`).
 
-### Environment (order / inventory / notification)
+### Environment (order / inventory / notification / analytics)
 
 | Variable | Default (local) |
 |----------|-----------------|
