@@ -9,12 +9,14 @@ import com.commercehub.inventory.entity.InventoryItem;
 import com.commercehub.inventory.exception.ConflictException;
 import com.commercehub.inventory.exception.NotFoundException;
 import com.commercehub.inventory.repository.InventoryItemRepository;
+import com.commercehub.messaging.event.OrderItemPayload;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -101,11 +103,44 @@ public class InventoryService {
         return toResponse(inventoryItemRepository.save(item));
     }
 
+    @Transactional
+    public void reserve(List<OrderItemPayload> items) {
+        for (OrderItemPayload line : items) {
+            InventoryItem item = inventoryItemRepository.findById(line.productId())
+                    .orElseThrow(() -> new NotFoundException("Inventory record not found for product " + line.productId()));
+
+            if (item.getAvailableQuantity() < line.quantity()) {
+                throw new ConflictException("Insufficient stock for product " + line.productId());
+            }
+
+            item.setAvailableQuantity(item.getAvailableQuantity() - line.quantity());
+            item.setReservedQuantity(item.getReservedQuantity() + line.quantity());
+            inventoryItemRepository.save(item);
+        }
+    }
+
+    @Transactional
+    public void release(List<OrderItemPayload> items) {
+        for (OrderItemPayload line : items) {
+            InventoryItem item = inventoryItemRepository.findById(line.productId())
+                    .orElseThrow(() -> new NotFoundException("Inventory record not found for product " + line.productId()));
+
+            if (item.getReservedQuantity() < line.quantity()) {
+                throw new ConflictException("Insufficient reserved stock for product " + line.productId());
+            }
+
+            item.setReservedQuantity(item.getReservedQuantity() - line.quantity());
+            item.setAvailableQuantity(item.getAvailableQuantity() + line.quantity());
+            inventoryItemRepository.save(item);
+        }
+    }
+
     private InventoryResponse toResponse(InventoryItem item) {
         boolean lowStock = item.getAvailableQuantity() <= item.getLowStockThreshold();
         return new InventoryResponse(
                 item.getProductId(),
                 item.getAvailableQuantity(),
+                item.getReservedQuantity(),
                 item.getLowStockThreshold(),
                 lowStock,
                 item.getCreatedAt(),
