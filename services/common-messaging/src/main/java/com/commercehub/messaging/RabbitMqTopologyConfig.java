@@ -41,6 +41,11 @@ public class RabbitMqTopologyConfig {
     }
 
     @Bean
+    public Queue analyticsEventsQueue() {
+        return new Queue(MessagingTopology.QUEUE_ANALYTICS_EVENTS, true);
+    }
+
+    @Bean
     public Binding inventoryOrderCreatedBinding(
             Queue inventoryOrderCreatedQueue,
             TopicExchange commercehubEventsExchange
@@ -86,6 +91,26 @@ public class RabbitMqTopologyConfig {
             TopicExchange commercehubEventsExchange
     ) {
         return BindingBuilder.bind(notificationStockEventsQueue)
+                .to(commercehubEventsExchange)
+                .with(MessagingTopology.BINDING_STOCK_ALL);
+    }
+
+    @Bean
+    public Binding analyticsOrderEventsBinding(
+            Queue analyticsEventsQueue,
+            TopicExchange commercehubEventsExchange
+    ) {
+        return BindingBuilder.bind(analyticsEventsQueue)
+                .to(commercehubEventsExchange)
+                .with(MessagingTopology.BINDING_ORDER_ALL);
+    }
+
+    @Bean
+    public Binding analyticsStockEventsBinding(
+            Queue analyticsEventsQueue,
+            TopicExchange commercehubEventsExchange
+    ) {
+        return BindingBuilder.bind(analyticsEventsQueue)
                 .to(commercehubEventsExchange)
                 .with(MessagingTopology.BINDING_STOCK_ALL);
     }
