@@ -26,6 +26,11 @@ public class RabbitMqTopologyConfig {
     }
 
     @Bean
+    public Queue orderStockReservedQueue() {
+        return new Queue(MessagingTopology.QUEUE_ORDER_STOCK_RESERVED, true);
+    }
+
+    @Bean
     public Queue notificationOrderEventsQueue() {
         return new Queue(MessagingTopology.QUEUE_NOTIFICATION_ORDER_EVENTS, true);
     }
@@ -53,6 +58,16 @@ public class RabbitMqTopologyConfig {
         return BindingBuilder.bind(inventoryOrderCancelledQueue)
                 .to(commercehubEventsExchange)
                 .with(MessagingTopology.ROUTING_ORDER_CANCELLED);
+    }
+
+    @Bean
+    public Binding orderStockReservedBinding(
+            Queue orderStockReservedQueue,
+            TopicExchange commercehubEventsExchange
+    ) {
+        return BindingBuilder.bind(orderStockReservedQueue)
+                .to(commercehubEventsExchange)
+                .with(MessagingTopology.ROUTING_STOCK_RESERVED);
     }
 
     @Bean

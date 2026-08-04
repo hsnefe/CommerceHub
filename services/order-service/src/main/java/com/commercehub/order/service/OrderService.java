@@ -1,8 +1,11 @@
 package com.commercehub.order.service;
 
+import com.commercehub.messaging.DomainEventPublisher;
+import com.commercehub.messaging.MessagingTopology;
+import com.commercehub.messaging.event.OrderCancelledEvent;
+import com.commercehub.messaging.event.OrderCreatedEvent;
+import com.commercehub.messaging.event.OrderItemPayload;
 import com.commercehub.order.client.AuthClient;
-import com.commercehub.order.client.InventoryClient;
-import com.commercehub.order.client.NotificationClient;
 import com.commercehub.order.client.ProductClient;
 import com.commercehub.order.dto.CancelOrderResponse;
 import com.commercehub.order.dto.CreateOrderRequest;
@@ -19,9 +22,12 @@ import com.commercehub.order.exception.NotFoundException;
 import com.commercehub.order.repository.OrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -31,22 +37,19 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final ProductClient productClient;
-    private final InventoryClient inventoryClient;
     private final AuthClient authClient;
-    private final NotificationClient notificationClient;
+    private final DomainEventPublisher domainEventPublisher;
 
     public OrderService(
             OrderRepository orderRepository,
             ProductClient productClient,
-            InventoryClient inventoryClient,
             AuthClient authClient,
-            NotificationClient notificationClient
+            DomainEventPublisher domainEventPublisher
     ) {
         this.orderRepository = orderRepository;
         this.productClient = productClient;
-        this.inventoryClient = inventoryClient;
         this.authClient = authClient;
-        this.notificationClient = notificationClient;
+        this.domainEventPublisher = domainEventPublisher;
     }
 
     @Transactional
@@ -63,16 +66,7 @@ public class OrderService {
             resolvedItems.add(new ResolvedItem(snapshot, itemRequest.quantity(), unitPrice, lineTotal));
         }
 
-        List<ResolvedItem> decremented = new ArrayList<>();
-        try {
-            for (ResolvedItem resolved : resolvedItems) {
-                inventoryClient.decrement(resolved.snapshot().id(), resolved.quantity());
-                decremented.add(resolved);
-            }
-        } catch (RuntimeException ex) {
-            compensate(decremented);
-            throw ex;
-        }
+        String email = authClient.getUserEmail(userId);
 
         Order order = new Order();
         order.setUserId(userId);
@@ -90,12 +84,24 @@ public class OrderService {
         }
 
         Order saved = orderRepository.save(order);
-        try {
-            String email = authClient.getUserEmail(userId);
-            notificationClient.sendOrderCreated(email, saved.getId());
-        } catch (RuntimeException ex) {
-            // Notification is best-effort; the order is already persisted.
-        }
+
+        List<OrderItemPayload> eventItems = resolvedItems.stream()
+                .map(resolved -> new OrderItemPayload(resolved.snapshot().id(), resolved.quantity()))
+                .toList();
+
+        publishAfterCommit(
+                MessagingTopology.ROUTING_ORDER_CREATED,
+                new OrderCreatedEvent(
+                        UUID.randomUUID(),
+                        Instant.now(),
+                        saved.getId(),
+                        userId,
+                        email,
+                        saved.getTotalPrice(),
+                        eventItems
+                )
+        );
+
         return new CreateOrderResponse(
                 saved.getId(),
                 saved.getStatus().name(),
@@ -135,27 +141,52 @@ public class OrderService {
         if (order.getStatus() == OrderStatus.CANCELLED) {
             throw new ConflictException("Order is already cancelled");
         }
-        if (order.getStatus() != OrderStatus.CREATED) {
+        if (order.getStatus() != OrderStatus.CREATED && order.getStatus() != OrderStatus.STOCK_RESERVED) {
             throw new ConflictException("Order cannot be cancelled");
         }
 
-        for (OrderItem item : order.getItems()) {
-            inventoryClient.increment(item.getProductId(), item.getQuantity());
-        }
+        List<OrderItemPayload> eventItems = order.getItems().stream()
+                .map(item -> new OrderItemPayload(item.getProductId(), item.getQuantity()))
+                .toList();
 
         order.setStatus(OrderStatus.CANCELLED);
         Order saved = orderRepository.save(order);
+
+        publishAfterCommit(
+                MessagingTopology.ROUTING_ORDER_CANCELLED,
+                new OrderCancelledEvent(
+                        UUID.randomUUID(),
+                        Instant.now(),
+                        saved.getId(),
+                        saved.getUserId(),
+                        eventItems
+                )
+        );
+
         return new CancelOrderResponse(saved.getId(), saved.getStatus().name());
     }
 
-    private void compensate(List<ResolvedItem> decremented) {
-        for (int i = decremented.size() - 1; i >= 0; i--) {
-            ResolvedItem item = decremented.get(i);
-            try {
-                inventoryClient.increment(item.snapshot().id(), item.quantity());
-            } catch (RuntimeException ignored) {
-                // Best-effort compensation; original failure is rethrown by caller.
-            }
+    @Transactional
+    public void markStockReserved(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new NotFoundException("Order not found"));
+        if (order.getStatus() != OrderStatus.CREATED) {
+            return;
+        }
+        order.setStatus(OrderStatus.STOCK_RESERVED);
+        orderRepository.save(order);
+    }
+
+    private void publishAfterCommit(String routingKey, Object event) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    domainEventPublisher.publish(routingKey, event);
+                }
+            });
+        } else {
+            domainEventPublisher.publish(routingKey, event);
         }
     }
 

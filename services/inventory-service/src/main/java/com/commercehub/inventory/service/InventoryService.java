@@ -125,12 +125,13 @@ public class InventoryService {
             InventoryItem item = inventoryItemRepository.findById(line.productId())
                     .orElseThrow(() -> new NotFoundException("Inventory record not found for product " + line.productId()));
 
-            if (item.getReservedQuantity() < line.quantity()) {
-                throw new ConflictException("Insufficient reserved stock for product " + line.productId());
+            int toRelease = Math.min(item.getReservedQuantity(), line.quantity());
+            if (toRelease == 0) {
+                continue;
             }
 
-            item.setReservedQuantity(item.getReservedQuantity() - line.quantity());
-            item.setAvailableQuantity(item.getAvailableQuantity() + line.quantity());
+            item.setReservedQuantity(item.getReservedQuantity() - toRelease);
+            item.setAvailableQuantity(item.getAvailableQuantity() + toRelease);
             inventoryItemRepository.save(item);
         }
     }

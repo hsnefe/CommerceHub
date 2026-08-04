@@ -162,9 +162,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: order_pass
       JWT_SECRET: dev-secret-key-change-in-production-min-32-chars
       PRODUCT_SERVICE_BASE_URL: http://product-service:8082
-      INVENTORY_SERVICE_BASE_URL: http://inventory-service:8083
       AUTH_SERVICE_BASE_URL: http://auth-service:8081
-      NOTIFICATION_SERVICE_BASE_URL: http://notification-service:8085
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: "5672"
       SPRING_RABBITMQ_USERNAME: commercehub

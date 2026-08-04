@@ -11,6 +11,7 @@ public final class MessagingTopology {
 
     public static final String QUEUE_INVENTORY_ORDER_CREATED = "inventory.order-created";
     public static final String QUEUE_INVENTORY_ORDER_CANCELLED = "inventory.order-cancelled";
+    public static final String QUEUE_ORDER_STOCK_RESERVED = "order.stock-reserved";
     public static final String QUEUE_NOTIFICATION_ORDER_EVENTS = "notification.order-events";
     public static final String QUEUE_NOTIFICATION_STOCK_EVENTS = "notification.stock-events";
 
