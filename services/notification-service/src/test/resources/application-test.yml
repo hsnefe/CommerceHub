@@ -1,3 +1,9 @@
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+      - com.commercehub.messaging.CommonMessagingAutoConfiguration
+
 auth:
   jwt:
     secret: test-secret-key-for-integration-tests-min-32-chars
