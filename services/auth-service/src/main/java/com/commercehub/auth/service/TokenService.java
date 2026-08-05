@@ -1,78 +1,75 @@
 package com.commercehub.auth.service;
 
 import com.commercehub.auth.config.RefreshTokenProperties;
-import com.commercehub.auth.entity.RefreshToken;
 import com.commercehub.auth.entity.User;
 import com.commercehub.auth.exception.UnauthorizedException;
-import com.commercehub.auth.repository.RefreshTokenRepository;
+import com.commercehub.auth.repository.UserRepository;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.time.Instant;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.UUID;
 
 @Service
 public class TokenService {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final String KEY_PREFIX = "refresh:";
 
-    private final RefreshTokenRepository refreshTokenRepository;
+    private final StringRedisTemplate redisTemplate;
+    private final UserRepository userRepository;
     private final RefreshTokenProperties refreshTokenProperties;
 
-    public TokenService(RefreshTokenRepository refreshTokenRepository, RefreshTokenProperties refreshTokenProperties) {
-        this.refreshTokenRepository = refreshTokenRepository;
+    public TokenService(
+            StringRedisTemplate redisTemplate,
+            UserRepository userRepository,
+            RefreshTokenProperties refreshTokenProperties) {
+        this.redisTemplate = redisTemplate;
+        this.userRepository = userRepository;
         this.refreshTokenProperties = refreshTokenProperties;
     }
 
-    @Transactional
     public String createRefreshToken(User user) {
         String rawToken = generateRawToken();
-        RefreshToken refreshToken = new RefreshToken();
-        refreshToken.setUser(user);
-        refreshToken.setTokenHash(hashToken(rawToken));
-        refreshToken.setExpiresAt(Instant.now().plusSeconds(refreshTokenProperties.expirationDays() * 24L * 60L * 60L));
-        refreshTokenRepository.save(refreshToken);
+        String hash = hashToken(rawToken);
+        long ttlSeconds = refreshTokenProperties.expirationDays() * 24L * 60L * 60L;
+        redisTemplate.opsForValue().set(
+                key(hash),
+                user.getId().toString(),
+                Duration.ofSeconds(ttlSeconds)
+        );
         return rawToken;
     }
 
-    @Transactional
     public User validateAndGetUser(String rawToken) {
-        RefreshToken stored = refreshTokenRepository.findByTokenHash(hashToken(rawToken))
-                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
-
-        if (!stored.isActive()) {
-            throw new UnauthorizedException("Refresh token is expired or revoked");
+        String userId = redisTemplate.opsForValue().get(key(hashToken(rawToken)));
+        if (userId == null) {
+            throw new UnauthorizedException("Invalid refresh token");
         }
-
-        return stored.getUser();
+        return userRepository.findById(UUID.fromString(userId))
+                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
     }
 
-    @Transactional
     public void revokeToken(String rawToken) {
-        refreshTokenRepository.findByTokenHash(hashToken(rawToken))
-                .ifPresent(token -> {
-                    token.setRevokedAt(Instant.now());
-                    refreshTokenRepository.save(token);
-                });
+        redisTemplate.delete(key(hashToken(rawToken)));
     }
 
-    @Transactional
     public String rotateRefreshToken(String rawToken) {
-        RefreshToken stored = refreshTokenRepository.findByTokenHash(hashToken(rawToken))
-                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
-
-        if (!stored.isActive()) {
-            throw new UnauthorizedException("Refresh token is expired or revoked");
+        String hash = hashToken(rawToken);
+        String userId = redisTemplate.opsForValue().get(key(hash));
+        if (userId == null) {
+            throw new UnauthorizedException("Invalid refresh token");
         }
-
-        stored.setRevokedAt(Instant.now());
-        refreshTokenRepository.save(stored);
-        return createRefreshToken(stored.getUser());
+        redisTemplate.delete(key(hash));
+        User user = userRepository.findById(UUID.fromString(userId))
+                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
+        return createRefreshToken(user);
     }
 
     public String hashToken(String rawToken) {
@@ -83,6 +80,10 @@ public class TokenService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 not available", e);
         }
+    }
+
+    private String key(String tokenHash) {
+        return KEY_PREFIX + tokenHash;
     }
 
     private String generateRawToken() {
