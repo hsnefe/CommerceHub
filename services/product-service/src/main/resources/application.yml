@@ -8,6 +8,10 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5434/product_db}
     username: ${SPRING_DATASOURCE_USERNAME:product_user}
     password: ${SPRING_DATASOURCE_PASSWORD:product_pass}
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -24,6 +28,10 @@ auth:
   jwt:
     secret: ${JWT_SECRET:change-me-to-a-secure-secret-key-at-least-32-chars-long}
     access-token-expiration-seconds: 3600
+
+product:
+  cache:
+    ttl-seconds: ${PRODUCT_CACHE_TTL_SECONDS:300}
 
 springdoc:
   api-docs:

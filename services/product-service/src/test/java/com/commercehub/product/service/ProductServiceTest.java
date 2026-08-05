@@ -1,5 +1,6 @@
 package com.commercehub.product.service;
 
+import com.commercehub.product.config.ProductCacheProperties;
 import com.commercehub.product.dto.ProductPageResponse;
 import com.commercehub.product.dto.ProductRequest;
 import com.commercehub.product.dto.ProductResponse;
@@ -8,19 +9,20 @@ import com.commercehub.product.entity.Category;
 import com.commercehub.product.entity.Product;
 import com.commercehub.product.exception.NotFoundException;
 import com.commercehub.product.repository.ProductRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import com.commercehub.product.repository.ProductSpecifications;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -40,10 +43,27 @@ class ProductServiceTest {
     @Mock
     private CategoryService categoryService;
 
-    @InjectMocks
+    @Mock
+    private StringRedisTemplate redisTemplate;
+
+    @Mock
+    private ValueOperations<String, String> valueOperations;
+
     private ProductService productService;
 
     private final UUID categoryId = UUID.randomUUID();
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        productService = new ProductService(
+                productRepository,
+                categoryService,
+                redisTemplate,
+                new ObjectMapper(),
+                new ProductCacheProperties(300)
+        );
+    }
 
     private Category sampleCategory() {
         Category category = new Category();
@@ -94,6 +114,7 @@ class ProductServiceTest {
         @Test
         void getById_notFound() {
             UUID id = UUID.randomUUID();
+            when(valueOperations.get("product:" + id)).thenReturn(null);
             when(productRepository.findByIdAndActiveTrue(id)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> productService.getById(id))
@@ -103,12 +124,27 @@ class ProductServiceTest {
         @Test
         void getById_success() {
             Product product = sampleProduct();
+            when(valueOperations.get("product:" + product.getId())).thenReturn(null);
             when(productRepository.findByIdAndActiveTrue(product.getId())).thenReturn(Optional.of(product));
 
             ProductResponse response = productService.getById(product.getId());
 
             assertThat(response.id()).isEqualTo(product.getId());
             assertThat(response.categoryId()).isEqualTo(categoryId);
+        }
+
+        @Test
+        void getById_cacheHit_skipsDatabase() {
+            Product product = sampleProduct();
+            String cachedJson = """
+                    {"id":"%s","name":"Cached Mouse","description":"Wireless","price":799.99,"currency":"TRY","categoryId":"%s"}
+                    """.formatted(product.getId(), categoryId);
+            when(valueOperations.get("product:" + product.getId())).thenReturn(cachedJson);
+
+            ProductResponse response = productService.getById(product.getId());
+
+            assertThat(response.name()).isEqualTo("Cached Mouse");
+            verify(productRepository, org.mockito.Mockito.never()).findByIdAndActiveTrue(any());
         }
     }
 
@@ -143,6 +179,7 @@ class ProductServiceTest {
 
             assertThat(product.isActive()).isFalse();
             verify(productRepository).save(product);
+            verify(redisTemplate).delete("product:" + product.getId());
         }
     }
 
@@ -152,6 +189,7 @@ class ProductServiceTest {
         @Test
         void getSnapshot_returnsPriceAndName() {
             Product product = sampleProduct();
+            when(valueOperations.get("product:" + product.getId())).thenReturn(null);
             when(productRepository.findByIdAndActiveTrue(product.getId())).thenReturn(Optional.of(product));
 
             ProductSnapshotResponse snapshot = productService.getSnapshot(product.getId());

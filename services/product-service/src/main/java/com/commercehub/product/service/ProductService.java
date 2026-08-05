@@ -1,5 +1,6 @@
 package com.commercehub.product.service;
 
+import com.commercehub.product.config.ProductCacheProperties;
 import com.commercehub.product.dto.ProductPageResponse;
 import com.commercehub.product.dto.ProductRequest;
 import com.commercehub.product.dto.ProductResponse;
@@ -9,24 +10,41 @@ import com.commercehub.product.entity.Product;
 import com.commercehub.product.exception.NotFoundException;
 import com.commercehub.product.repository.ProductRepository;
 import com.commercehub.product.repository.ProductSpecifications;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.UUID;
 
 @Service
 public class ProductService {
 
+    private static final String KEY_PREFIX = "product:";
+
     private final ProductRepository productRepository;
     private final CategoryService categoryService;
+    private final StringRedisTemplate redisTemplate;
+    private final ObjectMapper objectMapper;
+    private final ProductCacheProperties cacheProperties;
 
-    public ProductService(ProductRepository productRepository, CategoryService categoryService) {
+    public ProductService(
+            ProductRepository productRepository,
+            CategoryService categoryService,
+            StringRedisTemplate redisTemplate,
+            ObjectMapper objectMapper,
+            ProductCacheProperties cacheProperties) {
         this.productRepository = productRepository;
         this.categoryService = categoryService;
+        this.redisTemplate = redisTemplate;
+        this.objectMapper = objectMapper;
+        this.cacheProperties = cacheProperties;
     }
 
     @Transactional
@@ -41,9 +59,16 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public ProductResponse getById(UUID id) {
+        ProductResponse cached = getCached(id);
+        if (cached != null) {
+            return cached;
+        }
+
         Product product = productRepository.findByIdAndActiveTrue(id)
                 .orElseThrow(() -> new NotFoundException("Product not found"));
-        return toProductResponse(product);
+        ProductResponse response = toProductResponse(product);
+        putCache(id, response);
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -73,7 +98,9 @@ public class ProductService {
 
         categoryService.getCategory(request.categoryId());
         applyRequest(product, request);
-        return toProductResponse(productRepository.save(product));
+        ProductResponse response = toProductResponse(productRepository.save(product));
+        evictCache(id);
+        return response;
     }
 
     @Transactional
@@ -82,13 +109,47 @@ public class ProductService {
                 .orElseThrow(() -> new NotFoundException("Product not found"));
         product.setActive(false);
         productRepository.save(product);
+        evictCache(id);
     }
 
     @Transactional(readOnly = true)
     public ProductSnapshotResponse getSnapshot(UUID id) {
-        Product product = productRepository.findByIdAndActiveTrue(id)
-                .orElseThrow(() -> new NotFoundException("Product not found"));
-        return new ProductSnapshotResponse(product.getId(), product.getName(), product.getPrice());
+        ProductResponse product = getById(id);
+        return new ProductSnapshotResponse(product.id(), product.name(), product.price());
+    }
+
+    private ProductResponse getCached(UUID id) {
+        String json = redisTemplate.opsForValue().get(cacheKey(id));
+        if (json == null) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(json, ProductResponse.class);
+        } catch (JsonProcessingException e) {
+            evictCache(id);
+            return null;
+        }
+    }
+
+    private void putCache(UUID id, ProductResponse response) {
+        try {
+            String json = objectMapper.writeValueAsString(response);
+            redisTemplate.opsForValue().set(
+                    cacheKey(id),
+                    json,
+                    Duration.ofSeconds(cacheProperties.ttlSeconds())
+            );
+        } catch (JsonProcessingException e) {
+            // Skip caching on serialization failure
+        }
+    }
+
+    private void evictCache(UUID id) {
+        redisTemplate.delete(cacheKey(id));
+    }
+
+    private String cacheKey(UUID id) {
+        return KEY_PREFIX + id;
     }
 
     private void applyRequest(Product product, ProductRequest request) {
