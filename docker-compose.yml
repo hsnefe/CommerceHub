@@ -57,12 +57,15 @@ services:
     depends_on:
       auth-db:
         condition: service_healthy
+      eureka-server:
+        condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/auth_db
       SPRING_DATASOURCE_USERNAME: auth_user
       SPRING_DATASOURCE_PASSWORD: auth_pass
       JWT_SECRET: dev-secret-key-change-in-production-min-32-chars
       AUTH_EMAIL_VERIFICATION_REQUIRED: "false"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
 
   product-db:
     image: postgres:16
@@ -91,11 +94,14 @@ services:
     depends_on:
       product-db:
         condition: service_healthy
+      eureka-server:
+        condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://product-db:5432/product_db
       SPRING_DATASOURCE_USERNAME: product_user
       SPRING_DATASOURCE_PASSWORD: product_pass
       JWT_SECRET: dev-secret-key-change-in-production-min-32-chars
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
 
   inventory-db:
     image: postgres:16
@@ -128,6 +134,8 @@ services:
         condition: service_started
       rabbitmq:
         condition: service_healthy
+      eureka-server:
+        condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://inventory-db:5432/inventory_db
       SPRING_DATASOURCE_USERNAME: inventory_user
@@ -138,6 +146,7 @@ services:
       SPRING_RABBITMQ_PORT: "5672"
       SPRING_RABBITMQ_USERNAME: commercehub
       SPRING_RABBITMQ_PASSWORD: commercehub
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
 
   order-db:
     image: postgres:16
@@ -172,6 +181,8 @@ services:
         condition: service_started
       rabbitmq:
         condition: service_healthy
+      eureka-server:
+        condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://order-db:5432/order_db
       SPRING_DATASOURCE_USERNAME: order_user
@@ -183,6 +194,7 @@ services:
       SPRING_RABBITMQ_PORT: "5672"
       SPRING_RABBITMQ_USERNAME: commercehub
       SPRING_RABBITMQ_PASSWORD: commercehub
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
 
   notification-service:
     build:
@@ -194,12 +206,15 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+      eureka-server:
+        condition: service_healthy
     environment:
       JWT_SECRET: dev-secret-key-change-in-production-min-32-chars
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: "5672"
       SPRING_RABBITMQ_USERNAME: commercehub
       SPRING_RABBITMQ_PASSWORD: commercehub
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
 
   analytics-db:
     image: postgres:16
@@ -230,6 +245,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      eureka-server:
+        condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://analytics-db:5432/analytics_db
       SPRING_DATASOURCE_USERNAME: analytics_user
@@ -239,6 +256,7 @@ services:
       SPRING_RABBITMQ_PORT: "5672"
       SPRING_RABBITMQ_USERNAME: commercehub
       SPRING_RABBITMQ_PASSWORD: commercehub
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
 
 volumes:
   auth_pg_data:
