@@ -331,7 +331,7 @@ In Docker Compose these point at the `rabbitmq` service.
 
 ## V3 API Gateway + Eureka
 
-Service discovery and a single entry point for clients. Redis, Saga, observability, and CI/CD come in later V3 stages.
+Service discovery and a single entry point for clients. Saga, observability, and CI/CD come in later V3 stages.
 
 ### Architecture
 
@@ -377,6 +377,44 @@ mvn -pl api-gateway spring-boot:run
 |----------|---------|
 | `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE` | `http://localhost:8761/eureka/` |
 | `JWT_SECRET` | Same as auth / other services |
+
+## V3 Redis (refresh tokens + product cache)
+
+Shared Redis for auth refresh tokens and product-by-id caching. Gateway rate limiting comes in a later stage (same Redis).
+
+### Broker
+
+| Item | Value |
+|------|--------|
+| Host / port | `localhost:6379` |
+| Image | `redis:7-alpine` |
+
+```bash
+docker compose up redis -d
+```
+
+### Refresh tokens (auth-service)
+
+- Active refresh tokens live in Redis only: key `refresh:{sha256}` → `userId`, TTL = `auth.refresh-token.expiration-days` (default 7 days)
+- Raw tokens are never stored; SHA-256 hash is the key
+- Rotate / logout → `DEL` the key
+- Users remain in Postgres; Postgres `refresh_tokens` table is unused by the app (Flyway history kept)
+
+### Product cache (product-service)
+
+- Key `product:{id}` → JSON `ProductResponse`, TTL default **300** seconds (`product.cache.ttl-seconds`)
+- `GET` by id and internal snapshot use the cache; list endpoints are not cached
+- Update / soft-delete evicts `product:{id}`
+
+### Environment
+
+| Variable | Default (local) | Used by |
+|----------|-----------------|---------|
+| `SPRING_DATA_REDIS_HOST` | `localhost` | auth-service, product-service |
+| `SPRING_DATA_REDIS_PORT` | `6379` | auth-service, product-service |
+| `PRODUCT_CACHE_TTL_SECONDS` | `300` | product-service |
+
+In Docker Compose, auth and product services set `SPRING_DATA_REDIS_HOST=redis` and depend on the healthy Redis container.
 
 ## Front-End Dev Console
 
