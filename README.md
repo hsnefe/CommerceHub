@@ -190,6 +190,8 @@ docker compose up --build
 - Order Service: http://localhost:8084
 - Notification Service: http://localhost:8085
 - Analytics Service: http://localhost:8086
+- API Gateway: http://localhost:8080
+- Eureka: http://localhost:8761
 - Auth Swagger UI: http://localhost:8081/swagger-ui.html
 - Product Swagger UI: http://localhost:8082/swagger-ui.html
 - Inventory Swagger UI: http://localhost:8083/swagger-ui.html
@@ -326,6 +328,55 @@ Shared event records live in `services/common-messaging` (`OrderCreatedEvent`, `
 | `SPRING_RABBITMQ_PASSWORD` | `commercehub` |
 
 In Docker Compose these point at the `rabbitmq` service.
+
+## V3 API Gateway + Eureka
+
+Service discovery and a single entry point for clients. Redis, Saga, observability, and CI/CD come in later V3 stages.
+
+### Architecture
+
+- **Eureka** (`eureka-server`): registry on port **8761**
+- **API Gateway** (`api-gateway`): Spring Cloud Gateway on port **8080**; resolves backends via Eureka (`lb://…`)
+- All business services register with Eureka
+
+Clients should call the gateway, not service ports directly.
+
+| Path | Target |
+|------|--------|
+| `/api/v1/auth/**` | `auth-service` |
+| `/api/v1/products/**` | `product-service` |
+| `/api/v1/inventory/**` | `inventory-service` |
+| `/api/v1/orders/**` | `order-service` |
+| `/api/v1/notifications/**` | `notification-service` |
+| `/api/v1/analytics/**` | `analytics-service` |
+
+`/internal/**` is **not** exposed through the gateway (service-to-service only).
+
+JWT is validated at the gateway (`Authorization: Bearer …`). `/api/v1/auth/**` and Swagger paths are public; other `/api/v1/**` routes require a token. Downstream services still enforce JWT as a second check.
+
+### URLs
+
+| Item | URL |
+|------|-----|
+| API Gateway | http://localhost:8080 |
+| Eureka dashboard | http://localhost:8761 |
+| Example login | `POST http://localhost:8080/api/v1/auth/login` |
+| Example products | `GET http://localhost:8080/api/v1/products` (Bearer token) |
+
+### Run locally
+
+```bash
+# Eureka
+cd services && mvn -pl eureka-server spring-boot:run
+
+# Gateway (after Eureka and at least one backend are up)
+mvn -pl api-gateway spring-boot:run
+```
+
+| Variable | Default |
+|----------|---------|
+| `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE` | `http://localhost:8761/eureka/` |
+| `JWT_SECRET` | Same as auth / other services |
 
 ## Front-End Dev Console
 
