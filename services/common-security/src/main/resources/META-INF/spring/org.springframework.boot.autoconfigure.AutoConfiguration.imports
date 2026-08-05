@@ -1,1 +1,2 @@
 com.commercehub.security.CommonSecurityAutoConfiguration
+com.commercehub.security.JwtServletFilterAutoConfiguration

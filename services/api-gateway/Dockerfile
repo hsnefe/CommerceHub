@@ -11,14 +11,13 @@ COPY inventory-service/pom.xml inventory-service/
 COPY order-service/pom.xml order-service/
 COPY notification-service/pom.xml notification-service/
 COPY analytics-service/pom.xml analytics-service/
-RUN mvn -pl analytics-service -am dependency:go-offline -B
+RUN mvn -pl api-gateway -am dependency:go-offline -B
 COPY common-security/src common-security/src
-COPY common-messaging/src common-messaging/src
-COPY analytics-service/src analytics-service/src
-RUN mvn -pl analytics-service -am package -DskipTests -B
+COPY api-gateway/src api-gateway/src
+RUN mvn -pl api-gateway -am package -DskipTests -B
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /app/analytics-service/target/analytics-service-*.jar app.jar
-EXPOSE 8086
+COPY --from=build /app/api-gateway/target/api-gateway-*.jar app.jar
+EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

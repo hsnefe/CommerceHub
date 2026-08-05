@@ -4,6 +4,7 @@ COPY pom.xml .
 COPY common-security/pom.xml common-security/
 COPY common-messaging/pom.xml common-messaging/
 COPY eureka-server/pom.xml eureka-server/
+COPY api-gateway/pom.xml api-gateway/
 COPY auth-service/pom.xml auth-service/
 COPY product-service/pom.xml product-service/
 COPY inventory-service/pom.xml inventory-service/

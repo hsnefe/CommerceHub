@@ -21,6 +21,7 @@
         <module>common-security</module>
         <module>common-messaging</module>
         <module>eureka-server</module>
+        <module>api-gateway</module>
         <module>auth-service</module>
         <module>product-service</module>
         <module>inventory-service</module>
