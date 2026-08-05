@@ -1,4 +1,20 @@
 services:
+  eureka-server:
+    build:
+      context: ./services
+      dockerfile: eureka-server/Dockerfile
+    container_name: commercehub-eureka-server
+    ports:
+      - "8761:8761"
+    environment:
+      EUREKA_INSTANCE_HOSTNAME: eureka-server
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8761'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
   rabbitmq:
     image: rabbitmq:3.13-management
     container_name: commercehub-rabbitmq
