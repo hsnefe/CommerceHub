@@ -10,6 +10,7 @@ public record OrderCreatedEvent(
         Instant occurredAt,
         UUID orderId,
         UUID userId,
+        String email,
         BigDecimal totalPrice,
         List<OrderItemPayload> items
 ) {

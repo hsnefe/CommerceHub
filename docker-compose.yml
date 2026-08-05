@@ -162,9 +162,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: order_pass
       JWT_SECRET: dev-secret-key-change-in-production-min-32-chars
       PRODUCT_SERVICE_BASE_URL: http://product-service:8082
-      INVENTORY_SERVICE_BASE_URL: http://inventory-service:8083
       AUTH_SERVICE_BASE_URL: http://auth-service:8081
-      NOTIFICATION_SERVICE_BASE_URL: http://notification-service:8085
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: "5672"
       SPRING_RABBITMQ_USERNAME: commercehub
@@ -187,8 +185,48 @@ services:
       SPRING_RABBITMQ_USERNAME: commercehub
       SPRING_RABBITMQ_PASSWORD: commercehub
 
+  analytics-db:
+    image: postgres:16
+    container_name: commercehub-analytics-db
+    environment:
+      POSTGRES_DB: analytics_db
+      POSTGRES_USER: analytics_user
+      POSTGRES_PASSWORD: analytics_pass
+    ports:
+      - "5437:5432"
+    volumes:
+      - analytics_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U analytics_user -d analytics_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  analytics-service:
+    build:
+      context: ./services
+      dockerfile: analytics-service/Dockerfile
+    container_name: commercehub-analytics-service
+    ports:
+      - "8086:8086"
+    depends_on:
+      analytics-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://analytics-db:5432/analytics_db
+      SPRING_DATASOURCE_USERNAME: analytics_user
+      SPRING_DATASOURCE_PASSWORD: analytics_pass
+      JWT_SECRET: dev-secret-key-change-in-production-min-32-chars
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: "5672"
+      SPRING_RABBITMQ_USERNAME: commercehub
+      SPRING_RABBITMQ_PASSWORD: commercehub
+
 volumes:
   auth_pg_data:
   product_pg_data:
   inventory_pg_data:
   order_pg_data:
+  analytics_pg_data:

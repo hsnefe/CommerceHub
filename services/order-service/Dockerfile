@@ -8,6 +8,7 @@ COPY product-service/pom.xml product-service/
 COPY inventory-service/pom.xml inventory-service/
 COPY order-service/pom.xml order-service/
 COPY notification-service/pom.xml notification-service/
+COPY analytics-service/pom.xml analytics-service/
 RUN mvn -pl order-service -am dependency:go-offline -B
 COPY common-security/src common-security/src
 COPY common-messaging/src common-messaging/src

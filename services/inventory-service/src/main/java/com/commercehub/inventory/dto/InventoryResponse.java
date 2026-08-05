@@ -6,6 +6,7 @@ import java.util.UUID;
 public record InventoryResponse(
         UUID productId,
         int availableQuantity,
+        int reservedQuantity,
         int lowStockThreshold,
         boolean lowStock,
         Instant createdAt,

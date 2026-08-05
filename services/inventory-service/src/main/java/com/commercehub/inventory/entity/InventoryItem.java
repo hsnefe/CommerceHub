@@ -21,6 +21,9 @@ public class InventoryItem {
     @Column(name = "available_quantity", nullable = false)
     private int availableQuantity;
 
+    @Column(name = "reserved_quantity", nullable = false)
+    private int reservedQuantity = 0;
+
     @Column(name = "low_stock_threshold", nullable = false)
     private int lowStockThreshold = 5;
 
@@ -58,6 +61,14 @@ public class InventoryItem {
 
     public void setAvailableQuantity(int availableQuantity) {
         this.availableQuantity = availableQuantity;
+    }
+
+    public int getReservedQuantity() {
+        return reservedQuantity;
+    }
+
+    public void setReservedQuantity(int reservedQuantity) {
+        this.reservedQuantity = reservedQuantity;
     }
 
     public int getLowStockThreshold() {

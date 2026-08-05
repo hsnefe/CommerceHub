@@ -26,6 +26,11 @@ public class RabbitMqTopologyConfig {
     }
 
     @Bean
+    public Queue orderStockReservedQueue() {
+        return new Queue(MessagingTopology.QUEUE_ORDER_STOCK_RESERVED, true);
+    }
+
+    @Bean
     public Queue notificationOrderEventsQueue() {
         return new Queue(MessagingTopology.QUEUE_NOTIFICATION_ORDER_EVENTS, true);
     }
@@ -33,6 +38,11 @@ public class RabbitMqTopologyConfig {
     @Bean
     public Queue notificationStockEventsQueue() {
         return new Queue(MessagingTopology.QUEUE_NOTIFICATION_STOCK_EVENTS, true);
+    }
+
+    @Bean
+    public Queue analyticsEventsQueue() {
+        return new Queue(MessagingTopology.QUEUE_ANALYTICS_EVENTS, true);
     }
 
     @Bean
@@ -56,6 +66,16 @@ public class RabbitMqTopologyConfig {
     }
 
     @Bean
+    public Binding orderStockReservedBinding(
+            Queue orderStockReservedQueue,
+            TopicExchange commercehubEventsExchange
+    ) {
+        return BindingBuilder.bind(orderStockReservedQueue)
+                .to(commercehubEventsExchange)
+                .with(MessagingTopology.ROUTING_STOCK_RESERVED);
+    }
+
+    @Bean
     public Binding notificationOrderEventsBinding(
             Queue notificationOrderEventsQueue,
             TopicExchange commercehubEventsExchange
@@ -71,6 +91,26 @@ public class RabbitMqTopologyConfig {
             TopicExchange commercehubEventsExchange
     ) {
         return BindingBuilder.bind(notificationStockEventsQueue)
+                .to(commercehubEventsExchange)
+                .with(MessagingTopology.BINDING_STOCK_ALL);
+    }
+
+    @Bean
+    public Binding analyticsOrderEventsBinding(
+            Queue analyticsEventsQueue,
+            TopicExchange commercehubEventsExchange
+    ) {
+        return BindingBuilder.bind(analyticsEventsQueue)
+                .to(commercehubEventsExchange)
+                .with(MessagingTopology.BINDING_ORDER_ALL);
+    }
+
+    @Bean
+    public Binding analyticsStockEventsBinding(
+            Queue analyticsEventsQueue,
+            TopicExchange commercehubEventsExchange
+    ) {
+        return BindingBuilder.bind(analyticsEventsQueue)
                 .to(commercehubEventsExchange)
                 .with(MessagingTopology.BINDING_STOCK_ALL);
     }

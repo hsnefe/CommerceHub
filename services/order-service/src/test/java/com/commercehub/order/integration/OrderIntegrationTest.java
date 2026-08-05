@@ -1,10 +1,10 @@
 package com.commercehub.order.integration;
 
-import com.commercehub.order.client.InventoryClient;
+import com.commercehub.messaging.DomainEventPublisher;
+import com.commercehub.order.client.AuthClient;
 import com.commercehub.order.client.ProductClient;
 import com.commercehub.order.dto.CreateOrderRequest;
 import com.commercehub.order.dto.ProductSnapshotResponse;
-import com.commercehub.order.exception.ConflictException;
 import com.commercehub.security.JwtService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,10 +28,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -71,7 +68,10 @@ class OrderIntegrationTest {
     private ProductClient productClient;
 
     @MockBean
-    private InventoryClient inventoryClient;
+    private AuthClient authClient;
+
+    @MockBean
+    private DomainEventPublisher domainEventPublisher;
 
     private UUID userId;
     private UUID otherUserId;
@@ -91,8 +91,8 @@ class OrderIntegrationTest {
 
         when(productClient.getProductSnapshot(PRODUCT_ID))
                 .thenReturn(new ProductSnapshotResponse(PRODUCT_ID, "Gaming Mouse", new BigDecimal("799.99")));
-        doNothing().when(inventoryClient).decrement(any(UUID.class), anyInt());
-        doNothing().when(inventoryClient).increment(any(UUID.class), anyInt());
+        when(authClient.getUserEmail(any(UUID.class))).thenReturn("user@example.com");
+        doNothing().when(domainEventPublisher).publish(any(), any());
     }
 
     @Test
@@ -186,23 +186,6 @@ class OrderIntegrationTest {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.orderId").value(orderId));
-    }
-
-    @Test
-    void createOrder_insufficientStock_returns409() throws Exception {
-        doThrow(new ConflictException("Insufficient stock"))
-                .when(inventoryClient).decrement(eq(PRODUCT_ID), eq(5));
-
-        CreateOrderRequest request = new CreateOrderRequest(
-                List.of(new CreateOrderRequest.OrderItemRequest(PRODUCT_ID, 5))
-        );
-
-        mockMvc.perform(post("/api/v1/orders")
-                        .header("Authorization", "Bearer " + userToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error").value("CONFLICT"));
     }
 
     @Test

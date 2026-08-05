@@ -9,6 +9,7 @@ import com.commercehub.inventory.entity.InventoryItem;
 import com.commercehub.inventory.exception.ConflictException;
 import com.commercehub.inventory.exception.NotFoundException;
 import com.commercehub.inventory.repository.InventoryItemRepository;
+import com.commercehub.messaging.event.OrderItemPayload;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -174,6 +176,50 @@ class InventoryServiceTest {
 
             assertThat(response.availableQuantity()).isEqualTo(20);
             assertThat(response.lowStockThreshold()).isEqualTo(8);
+        }
+    }
+
+    @Nested
+    class Reserve {
+
+        @Test
+        void reserve_success() {
+            InventoryItem item = sampleItem();
+            when(inventoryItemRepository.findById(productId)).thenReturn(Optional.of(item));
+            when(inventoryItemRepository.save(item)).thenReturn(item);
+
+            inventoryService.reserve(List.of(new OrderItemPayload(productId, 3)));
+
+            assertThat(item.getAvailableQuantity()).isEqualTo(7);
+            assertThat(item.getReservedQuantity()).isEqualTo(3);
+        }
+
+        @Test
+        void reserve_insufficientStock_throwsConflict() {
+            InventoryItem item = sampleItem();
+            item.setAvailableQuantity(2);
+            when(inventoryItemRepository.findById(productId)).thenReturn(Optional.of(item));
+
+            assertThatThrownBy(() -> inventoryService.reserve(List.of(new OrderItemPayload(productId, 5))))
+                    .isInstanceOf(ConflictException.class);
+        }
+    }
+
+    @Nested
+    class Release {
+
+        @Test
+        void release_success() {
+            InventoryItem item = sampleItem();
+            item.setAvailableQuantity(7);
+            item.setReservedQuantity(3);
+            when(inventoryItemRepository.findById(productId)).thenReturn(Optional.of(item));
+            when(inventoryItemRepository.save(item)).thenReturn(item);
+
+            inventoryService.release(List.of(new OrderItemPayload(productId, 3)));
+
+            assertThat(item.getAvailableQuantity()).isEqualTo(10);
+            assertThat(item.getReservedQuantity()).isEqualTo(0);
         }
     }
 }
