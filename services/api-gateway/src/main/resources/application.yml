@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: api-gateway
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
   cloud:
     gateway:
       discovery:
@@ -54,6 +58,13 @@ auth:
   jwt:
     secret: ${JWT_SECRET:change-me-to-a-secure-secret-key-at-least-32-chars-long}
     access-token-expiration-seconds: 3600
+
+gateway:
+  rate-limit:
+    enabled: true
+    replenish-rate: 10
+    burst-capacity: 20
+    requested-tokens: 1
 
 eureka:
   client:

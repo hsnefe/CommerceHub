@@ -1,0 +1,12 @@
+gateway:
+  rate-limit:
+    enabled: true
+    replenish-rate: 1
+    burst-capacity: 2
+    requested-tokens: 1
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
