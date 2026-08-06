@@ -378,9 +378,9 @@ mvn -pl api-gateway spring-boot:run
 | `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE` | `http://localhost:8761/eureka/` |
 | `JWT_SECRET` | Same as auth / other services |
 
-## V3 Redis (refresh tokens + product cache)
+## V3 Redis (tokens, cache, rate limiting)
 
-Shared Redis for auth refresh tokens and product-by-id caching. Gateway rate limiting comes in a later stage (same Redis).
+Shared Redis for auth refresh tokens, product-by-id caching, and gateway rate limiting.
 
 ### Broker
 
@@ -406,15 +406,27 @@ docker compose up redis -d
 - `GET` by id and internal snapshot use the cache; list endpoints are not cached
 - Update / soft-delete evicts `product:{id}`
 
+### Gateway rate limiting (api-gateway)
+
+- Redis token-bucket limiter per client IP (`X-Forwarded-For` first hop, else remote address)
+- Applied **before** JWT validation (`RateLimitGlobalFilter` order `-200`)
+- Default: **10 req/s**, burst **20** (`gateway.rate-limit.*`)
+- Limit exceeded → **429** JSON `{ "error": "TOO_MANY_REQUESTS", ... }`
+- Disable locally: `gateway.rate-limit.enabled=false`
+
 ### Environment
 
 | Variable | Default (local) | Used by |
 |----------|-----------------|---------|
-| `SPRING_DATA_REDIS_HOST` | `localhost` | auth-service, product-service |
-| `SPRING_DATA_REDIS_PORT` | `6379` | auth-service, product-service |
+| `SPRING_DATA_REDIS_HOST` | `localhost` | auth-service, product-service, api-gateway |
+| `SPRING_DATA_REDIS_PORT` | `6379` | auth-service, product-service, api-gateway |
 | `PRODUCT_CACHE_TTL_SECONDS` | `300` | product-service |
+| `GATEWAY_RATE_LIMIT_ENABLED` | `true` | api-gateway (`gateway.rate-limit.enabled`) |
+| `GATEWAY_RATE_LIMIT_REPLENISH_RATE` | `10` | api-gateway |
+| `GATEWAY_RATE_LIMIT_BURST_CAPACITY` | `20` | api-gateway |
+| `GATEWAY_RATE_LIMIT_REQUESTED_TOKENS` | `1` | api-gateway |
 
-In Docker Compose, auth and product services set `SPRING_DATA_REDIS_HOST=redis` and depend on the healthy Redis container.
+In Docker Compose, auth, product, and api-gateway set `SPRING_DATA_REDIS_HOST=redis` and depend on the healthy Redis container.
 
 ## Front-End Dev Console
 

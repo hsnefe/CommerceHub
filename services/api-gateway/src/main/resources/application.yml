@@ -61,10 +61,10 @@ auth:
 
 gateway:
   rate-limit:
-    enabled: true
-    replenish-rate: 10
-    burst-capacity: 20
-    requested-tokens: 1
+    enabled: ${GATEWAY_RATE_LIMIT_ENABLED:true}
+    replenish-rate: ${GATEWAY_RATE_LIMIT_REPLENISH_RATE:10}
+    burst-capacity: ${GATEWAY_RATE_LIMIT_BURST_CAPACITY:20}
+    requested-tokens: ${GATEWAY_RATE_LIMIT_REQUESTED_TOKENS:1}
 
 eureka:
   client:
