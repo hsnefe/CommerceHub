@@ -5,6 +5,11 @@ gateway:
     burst-capacity: 2
     requested-tokens: 1
 
+auth:
+  jwt:
+    secret: test-secret-key-for-integration-tests-min-32-chars
+    access-token-expiration-seconds: 3600
+
 eureka:
   client:
     enabled: false
