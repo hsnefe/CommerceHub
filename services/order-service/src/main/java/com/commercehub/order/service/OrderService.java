@@ -175,6 +175,57 @@ public class OrderService {
     }
 
     @Transactional
+    public void markPaid(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new NotFoundException("Order not found"));
+        if (order.getStatus() == OrderStatus.PAID
+                || order.getStatus() == OrderStatus.PREPARING
+                || order.getStatus() == OrderStatus.SHIPPED
+                || order.getStatus() == OrderStatus.DELIVERED
+                || order.getStatus() == OrderStatus.CANCELLED) {
+            return;
+        }
+        if (order.getStatus() == OrderStatus.CREATED) {
+            orderStateMachine.transition(order, OrderStatus.STOCK_RESERVED);
+        }
+        if (order.getStatus() == OrderStatus.STOCK_RESERVED) {
+            orderStateMachine.transition(order, OrderStatus.PAID);
+        }
+        orderRepository.save(order);
+    }
+
+    @Transactional
+    public void cancelDueToPaymentFailure(UUID orderId) {
+        Order order = orderRepository.findWithItemsById(orderId)
+                .orElseThrow(() -> new NotFoundException("Order not found"));
+        if (order.getStatus() == OrderStatus.CANCELLED
+                || order.getStatus() == OrderStatus.PAID
+                || order.getStatus() == OrderStatus.PREPARING
+                || order.getStatus() == OrderStatus.SHIPPED
+                || order.getStatus() == OrderStatus.DELIVERED) {
+            return;
+        }
+
+        List<OrderItemPayload> eventItems = order.getItems().stream()
+                .map(item -> new OrderItemPayload(item.getProductId(), item.getQuantity()))
+                .toList();
+
+        orderStateMachine.transition(order, OrderStatus.CANCELLED);
+        Order saved = orderRepository.save(order);
+
+        publishAfterCommit(
+                MessagingTopology.ROUTING_ORDER_CANCELLED,
+                new OrderCancelledEvent(
+                        UUID.randomUUID(),
+                        Instant.now(),
+                        saved.getId(),
+                        saved.getUserId(),
+                        eventItems
+                )
+        );
+    }
+
+    @Transactional
     public OrderDetailResponse transitionStatus(UUID orderId, OrderStatus target, boolean admin) {
         if (!admin) {
             throw new ForbiddenException("Access denied");

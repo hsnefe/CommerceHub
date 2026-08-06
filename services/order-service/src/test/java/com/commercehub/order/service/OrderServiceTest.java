@@ -316,4 +316,68 @@ class OrderServiceTest {
             verify(orderRepository, never()).save(any());
         }
     }
+
+    @Nested
+    class SagaPayment {
+
+        @Test
+        void markPaid_fromStockReserved() {
+            Order order = sampleOrder();
+            order.setStatus(OrderStatus.STOCK_RESERVED);
+            when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+            when(orderRepository.save(order)).thenReturn(order);
+
+            orderService.markPaid(orderId);
+
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+            verify(orderRepository).save(order);
+        }
+
+        @Test
+        void markPaid_fromCreated_transitionsThroughStockReserved() {
+            Order order = sampleOrder();
+            when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+            when(orderRepository.save(order)).thenReturn(order);
+
+            orderService.markPaid(orderId);
+
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        }
+
+        @Test
+        void markPaid_alreadyPaid_isIdempotent() {
+            Order order = sampleOrder();
+            order.setStatus(OrderStatus.PAID);
+            when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+            orderService.markPaid(orderId);
+
+            verify(orderRepository, never()).save(any());
+        }
+
+        @Test
+        void cancelDueToPaymentFailure_fromStockReserved_publishesCancelled() {
+            Order order = sampleOrder();
+            order.setStatus(OrderStatus.STOCK_RESERVED);
+            when(orderRepository.findWithItemsById(orderId)).thenReturn(Optional.of(order));
+            when(orderRepository.save(order)).thenReturn(order);
+
+            orderService.cancelDueToPaymentFailure(orderId);
+
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+            verify(domainEventPublisher).publish(eq(MessagingTopology.ROUTING_ORDER_CANCELLED), any(OrderCancelledEvent.class));
+        }
+
+        @Test
+        void cancelDueToPaymentFailure_alreadyCancelled_isIdempotent() {
+            Order order = sampleOrder();
+            order.setStatus(OrderStatus.CANCELLED);
+            when(orderRepository.findWithItemsById(orderId)).thenReturn(Optional.of(order));
+
+            orderService.cancelDueToPaymentFailure(orderId);
+
+            verify(domainEventPublisher, never()).publish(any(), any());
+            verify(orderRepository, never()).save(any());
+        }
+    }
 }
