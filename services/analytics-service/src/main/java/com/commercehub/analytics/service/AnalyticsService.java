@@ -21,6 +21,8 @@ public class AnalyticsService {
     public static final String TYPE_ORDER_CANCELLED = "OrderCancelled";
     public static final String TYPE_STOCK_RESERVED = "StockReserved";
     public static final String TYPE_STOCK_RELEASED = "StockReleased";
+    public static final String TYPE_PAYMENT_SUCCEEDED = "PaymentSucceeded";
+    public static final String TYPE_PAYMENT_FAILED = "PaymentFailed";
 
     private final AnalyticsEventRepository analyticsEventRepository;
     private final ObjectMapper objectMapper;

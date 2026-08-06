@@ -5,6 +5,8 @@ import com.commercehub.messaging.DomainEventPublisher;
 import com.commercehub.messaging.MessagingTopology;
 import com.commercehub.messaging.event.OrderCancelledEvent;
 import com.commercehub.messaging.event.OrderCreatedEvent;
+import com.commercehub.messaging.event.PaymentFailedEvent;
+import com.commercehub.messaging.event.PaymentSucceededEvent;
 import com.commercehub.messaging.event.StockReleasedEvent;
 import com.commercehub.messaging.event.StockReservedEvent;
 import org.slf4j.Logger;
@@ -54,6 +56,18 @@ public class DomainEventAnalyticsListener {
             case StockReleasedEvent event -> analyticsService.record(
                     event.eventId(),
                     AnalyticsService.TYPE_STOCK_RELEASED,
+                    event.orderId(),
+                    event
+            );
+            case PaymentSucceededEvent event -> analyticsService.record(
+                    event.eventId(),
+                    AnalyticsService.TYPE_PAYMENT_SUCCEEDED,
+                    event.orderId(),
+                    event
+            );
+            case PaymentFailedEvent event -> analyticsService.record(
+                    event.eventId(),
+                    AnalyticsService.TYPE_PAYMENT_FAILED,
                     event.orderId(),
                     event
             );

@@ -4,6 +4,8 @@ import com.commercehub.messaging.DomainEventPublisher;
 import com.commercehub.messaging.MessagingTopology;
 import com.commercehub.messaging.event.OrderCancelledEvent;
 import com.commercehub.messaging.event.OrderCreatedEvent;
+import com.commercehub.messaging.event.PaymentFailedEvent;
+import com.commercehub.messaging.event.PaymentSucceededEvent;
 import com.commercehub.messaging.event.StockReleasedEvent;
 import com.commercehub.messaging.event.StockReservedEvent;
 import com.commercehub.notification.dto.SendNotificationRequest;
@@ -66,6 +68,24 @@ public class DomainEventNotificationListener {
                     "Stock released for order " + event.orderId() + "."
             ));
             default -> log.warn("Ignoring unexpected stock event payload: {}", payload.getClass().getName());
+        }
+    }
+
+    @RabbitListener(queues = MessagingTopology.QUEUE_NOTIFICATION_PAYMENT_EVENTS)
+    public void onPaymentEvent(Message message) {
+        Object payload = messageConverter.fromMessage(message);
+        switch (payload) {
+            case PaymentSucceededEvent event -> notificationService.send(new SendNotificationRequest(
+                    "system@commercehub.local",
+                    "Payment Succeeded",
+                    "Payment succeeded for order " + event.orderId() + "."
+            ));
+            case PaymentFailedEvent event -> notificationService.send(new SendNotificationRequest(
+                    "system@commercehub.local",
+                    "Payment Failed",
+                    "Payment failed for order " + event.orderId() + ": " + event.reason()
+            ));
+            default -> log.warn("Ignoring unexpected payment event payload: {}", payload.getClass().getName());
         }
     }
 }

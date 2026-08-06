@@ -31,6 +31,21 @@ public class RabbitMqTopologyConfig {
     }
 
     @Bean
+    public Queue paymentStockReservedQueue() {
+        return new Queue(MessagingTopology.QUEUE_PAYMENT_STOCK_RESERVED, true);
+    }
+
+    @Bean
+    public Queue orderPaymentSucceededQueue() {
+        return new Queue(MessagingTopology.QUEUE_ORDER_PAYMENT_SUCCEEDED, true);
+    }
+
+    @Bean
+    public Queue orderPaymentFailedQueue() {
+        return new Queue(MessagingTopology.QUEUE_ORDER_PAYMENT_FAILED, true);
+    }
+
+    @Bean
     public Queue notificationOrderEventsQueue() {
         return new Queue(MessagingTopology.QUEUE_NOTIFICATION_ORDER_EVENTS, true);
     }
@@ -38,6 +53,11 @@ public class RabbitMqTopologyConfig {
     @Bean
     public Queue notificationStockEventsQueue() {
         return new Queue(MessagingTopology.QUEUE_NOTIFICATION_STOCK_EVENTS, true);
+    }
+
+    @Bean
+    public Queue notificationPaymentEventsQueue() {
+        return new Queue(MessagingTopology.QUEUE_NOTIFICATION_PAYMENT_EVENTS, true);
     }
 
     @Bean
@@ -76,6 +96,36 @@ public class RabbitMqTopologyConfig {
     }
 
     @Bean
+    public Binding paymentStockReservedBinding(
+            Queue paymentStockReservedQueue,
+            TopicExchange commercehubEventsExchange
+    ) {
+        return BindingBuilder.bind(paymentStockReservedQueue)
+                .to(commercehubEventsExchange)
+                .with(MessagingTopology.ROUTING_STOCK_RESERVED);
+    }
+
+    @Bean
+    public Binding orderPaymentSucceededBinding(
+            Queue orderPaymentSucceededQueue,
+            TopicExchange commercehubEventsExchange
+    ) {
+        return BindingBuilder.bind(orderPaymentSucceededQueue)
+                .to(commercehubEventsExchange)
+                .with(MessagingTopology.ROUTING_PAYMENT_SUCCEEDED);
+    }
+
+    @Bean
+    public Binding orderPaymentFailedBinding(
+            Queue orderPaymentFailedQueue,
+            TopicExchange commercehubEventsExchange
+    ) {
+        return BindingBuilder.bind(orderPaymentFailedQueue)
+                .to(commercehubEventsExchange)
+                .with(MessagingTopology.ROUTING_PAYMENT_FAILED);
+    }
+
+    @Bean
     public Binding notificationOrderEventsBinding(
             Queue notificationOrderEventsQueue,
             TopicExchange commercehubEventsExchange
@@ -96,6 +146,16 @@ public class RabbitMqTopologyConfig {
     }
 
     @Bean
+    public Binding notificationPaymentEventsBinding(
+            Queue notificationPaymentEventsQueue,
+            TopicExchange commercehubEventsExchange
+    ) {
+        return BindingBuilder.bind(notificationPaymentEventsQueue)
+                .to(commercehubEventsExchange)
+                .with(MessagingTopology.BINDING_PAYMENT_ALL);
+    }
+
+    @Bean
     public Binding analyticsOrderEventsBinding(
             Queue analyticsEventsQueue,
             TopicExchange commercehubEventsExchange
@@ -113,5 +173,15 @@ public class RabbitMqTopologyConfig {
         return BindingBuilder.bind(analyticsEventsQueue)
                 .to(commercehubEventsExchange)
                 .with(MessagingTopology.BINDING_STOCK_ALL);
+    }
+
+    @Bean
+    public Binding analyticsPaymentEventsBinding(
+            Queue analyticsEventsQueue,
+            TopicExchange commercehubEventsExchange
+    ) {
+        return BindingBuilder.bind(analyticsEventsQueue)
+                .to(commercehubEventsExchange)
+                .with(MessagingTopology.BINDING_PAYMENT_ALL);
     }
 }

@@ -40,6 +40,8 @@ public class OrderInventoryEventListener {
                             UUID.randomUUID(),
                             Instant.now(),
                             event.orderId(),
+                            event.userId(),
+                            event.totalPrice(),
                             event.items()
                     )
             );
