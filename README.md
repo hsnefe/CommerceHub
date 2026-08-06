@@ -166,7 +166,7 @@ mvn -pl inventory-service test
 
 Order orchestration service for CommerceHub. Creates orders, snapshots product prices, and publishes domain events. Stock reservation and notifications are asynchronous via RabbitMQ.
 
-Statuses (State Pattern): `CREATED` → `STOCK_RESERVED` → `PAID` → `PREPARING` → `SHIPPED` → `DELIVERED`, plus `CANCELLED` from `CREATED`/`STOCK_RESERVED`.
+Statuses (State Pattern): `CREATED` → `STOCK_RESERVED` → `PAID` → `PREPARING` → `SHIPPED` → `DELIVERED`, plus `CANCELLED` from `CREATED`/`STOCK_RESERVED`. After stock reservation, payment-service drives `PAID` or compensation cancel (Saga).
 
 ### Endpoints
 
@@ -190,6 +190,7 @@ docker compose up --build
 - Order Service: http://localhost:8084
 - Notification Service: http://localhost:8085
 - Analytics Service: http://localhost:8086
+- Payment Service: http://localhost:8087
 - API Gateway: http://localhost:8080
 - Eureka: http://localhost:8761
 - Auth Swagger UI: http://localhost:8081/swagger-ui.html
@@ -313,10 +314,10 @@ docker compose up rabbitmq -d
 | Kind | Name |
 |------|------|
 | Exchange | `commercehub.events` (topic, durable) |
-| Routing keys | `order.created`, `order.cancelled`, `stock.reserved`, `stock.released` |
-| Queues | `inventory.order-created`, `inventory.order-cancelled`, `order.stock-reserved`, `notification.order-events` (`order.#`), `notification.stock-events` (`stock.#`), `analytics.events` (`order.#` + `stock.#`) |
+| Routing keys | `order.created`, `order.cancelled`, `stock.reserved`, `stock.released`, `payment.succeeded`, `payment.failed` |
+| Queues | `inventory.order-created`, `inventory.order-cancelled`, `order.stock-reserved`, `payment.stock-reserved`, `order.payment-succeeded`, `order.payment-failed`, `notification.order-events` (`order.#`), `notification.stock-events` (`stock.#`), `notification.payment-events` (`payment.#`), `analytics.events` (`order.#` + `stock.#` + `payment.#`) |
 
-Shared event records live in `services/common-messaging` (`OrderCreatedEvent`, `OrderCancelledEvent`, `StockReservedEvent`, `StockReleasedEvent`).
+Shared event records live in `services/common-messaging` (`OrderCreatedEvent`, `OrderCancelledEvent`, `StockReservedEvent`, `StockReleasedEvent`, `PaymentSucceededEvent`, `PaymentFailedEvent`).
 
 ### Environment (order / inventory / notification / analytics)
 
@@ -331,7 +332,7 @@ In Docker Compose these point at the `rabbitmq` service.
 
 ## V3 API Gateway + Eureka
 
-Service discovery and a single entry point for clients. Saga, observability, and CI/CD come in later V3 stages.
+Service discovery and a single entry point for clients. Observability and CI/CD come in later V3 stages.
 
 ### Architecture
 
@@ -427,6 +428,30 @@ docker compose up redis -d
 | `GATEWAY_RATE_LIMIT_REQUESTED_TOKENS` | `1` | api-gateway |
 
 In Docker Compose, auth, product, and api-gateway set `SPRING_DATA_REDIS_HOST=redis` and depend on the healthy Redis container.
+
+## V3 Saga (payment + compensation)
+
+Choreography saga after stock reservation. No HTTP payment API — `payment-service` (port **8087**) only consumes/publishes RabbitMQ events.
+
+### Flow
+
+1. Order create → `order.created` → inventory reserve → `stock.reserved` → order `STOCK_RESERVED`
+2. `payment-service` consumes `stock.reserved`
+3. **Success** (`PAYMENT_SIMULATE_FAILURE=false`): `payment.succeeded` → order `PAID`
+4. **Failure** (`PAYMENT_SIMULATE_FAILURE=true`): `payment.failed` → order `CANCELLED` + `order.cancelled` → inventory release → `stock.released`
+
+Admin `PATCH /api/v1/orders/{id}/status` to `PAID` still works as a manual override.
+
+### Environment
+
+| Variable | Default | Used by |
+|----------|---------|---------|
+| `PAYMENT_SIMULATE_FAILURE` | `false` | payment-service |
+
+```bash
+# Demo compensation path
+PAYMENT_SIMULATE_FAILURE=true docker compose up payment-service -d
+```
 
 ## Front-End Dev Console
 
