@@ -39,6 +39,8 @@ services:
         condition: service_started
       analytics-service:
         condition: service_started
+      payment-service:
+        condition: service_started
     environment:
       JWT_SECRET: dev-secret-key-change-in-production-min-32-chars
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
@@ -261,6 +263,26 @@ services:
       SPRING_RABBITMQ_USERNAME: commercehub
       SPRING_RABBITMQ_PASSWORD: commercehub
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+
+  payment-service:
+    build:
+      context: ./services
+      dockerfile: payment-service/Dockerfile
+    container_name: commercehub-payment-service
+    ports:
+      - "8087:8087"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: "5672"
+      SPRING_RABBITMQ_USERNAME: commercehub
+      SPRING_RABBITMQ_PASSWORD: commercehub
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      PAYMENT_SIMULATE_FAILURE: "false"
 
   analytics-db:
     image: postgres:16

@@ -11,6 +11,7 @@ COPY inventory-service/pom.xml inventory-service/
 COPY order-service/pom.xml order-service/
 COPY notification-service/pom.xml notification-service/
 COPY analytics-service/pom.xml analytics-service/
+COPY payment-service/pom.xml payment-service/
 RUN mvn -pl auth-service -am dependency:go-offline -B
 COPY common-security/src common-security/src
 COPY auth-service/src auth-service/src
