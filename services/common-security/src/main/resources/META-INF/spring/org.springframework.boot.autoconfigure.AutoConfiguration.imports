@@ -1,2 +1,3 @@
 com.commercehub.security.CommonSecurityAutoConfiguration
 com.commercehub.security.JwtServletFilterAutoConfiguration
+com.commercehub.security.CorrelationIdFilterAutoConfiguration
