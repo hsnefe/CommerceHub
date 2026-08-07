@@ -50,6 +50,38 @@ eureka:
   instance:
     prefer-ip-address: true
 
+resilience4j:
+  circuitbreaker:
+    circuit-breaker-aspect-order: 1
+    configs:
+      serviceClient:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: ${CIRCUIT_BREAKER_SLIDING_WINDOW_SIZE:20}
+        minimum-number-of-calls: ${CIRCUIT_BREAKER_MINIMUM_CALLS:10}
+        failure-rate-threshold: ${CIRCUIT_BREAKER_FAILURE_RATE_THRESHOLD:50}
+        wait-duration-in-open-state: ${CIRCUIT_BREAKER_OPEN_WAIT:10s}
+        permitted-number-of-calls-in-half-open-state: ${CIRCUIT_BREAKER_HALF_OPEN_CALLS:3}
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+        record-exceptions:
+          - com.commercehub.inventory.exception.TransientServiceUnavailableException
+    instances:
+      inventoryProduct:
+        base-config: serviceClient
+  retry:
+    retry-aspect-order: 2
+    configs:
+      serviceClient:
+        max-attempts: ${RETRY_MAX_ATTEMPTS:3}
+        wait-duration: ${RETRY_WAIT_DURATION:200ms}
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - com.commercehub.inventory.exception.TransientServiceUnavailableException
+    instances:
+      inventoryProduct:
+        base-config: serviceClient
+
 management:
   endpoints:
     web:

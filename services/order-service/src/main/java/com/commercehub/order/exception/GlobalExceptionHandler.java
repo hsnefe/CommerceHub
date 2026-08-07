@@ -1,6 +1,7 @@
 package com.commercehub.order.exception;
 
 import com.commercehub.order.dto.ErrorResponse;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,6 +52,20 @@ public class GlobalExceptionHandler {
     ) {
         return ResponseEntity.badRequest()
                 .body(error(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Malformed request body", request));
+    }
+
+    @ExceptionHandler(CallNotPermittedException.class)
+    public ResponseEntity<ErrorResponse> handleOpenCircuit(
+            CallNotPermittedException ex,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(error(
+                        HttpStatus.SERVICE_UNAVAILABLE,
+                        "SERVICE_UNAVAILABLE",
+                        "Dependent service is temporarily unavailable",
+                        request
+                ));
     }
 
     @ExceptionHandler(Exception.class)
