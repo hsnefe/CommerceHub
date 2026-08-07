@@ -33,26 +33,62 @@ spring:
           uri: lb://auth-service
           predicates:
             - Path=/api/v1/auth/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: authGateway
+                fallbackUri: forward:/fallback/auth-service
+                statusCodes: 500,502,503,504
         - id: product-service
           uri: lb://product-service
           predicates:
             - Path=/api/v1/products/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: productGateway
+                fallbackUri: forward:/fallback/product-service
+                statusCodes: 500,502,503,504
         - id: inventory-service
           uri: lb://inventory-service
           predicates:
             - Path=/api/v1/inventory/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: inventoryGateway
+                fallbackUri: forward:/fallback/inventory-service
+                statusCodes: 500,502,503,504
         - id: order-service
           uri: lb://order-service
           predicates:
             - Path=/api/v1/orders/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: orderGateway
+                fallbackUri: forward:/fallback/order-service
+                statusCodes: 500,502,503,504
         - id: notification-service
           uri: lb://notification-service
           predicates:
             - Path=/api/v1/notifications/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: notificationGateway
+                fallbackUri: forward:/fallback/notification-service
+                statusCodes: 500,502,503,504
         - id: analytics-service
           uri: lb://analytics-service
           predicates:
             - Path=/api/v1/analytics/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: analyticsGateway
+                fallbackUri: forward:/fallback/analytics-service
+                statusCodes: 500,502,503,504
 
 auth:
   jwt:
@@ -72,6 +108,32 @@ eureka:
       defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
   instance:
     prefer-ip-address: true
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      gateway:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: ${GATEWAY_CIRCUIT_BREAKER_SLIDING_WINDOW_SIZE:20}
+        minimum-number-of-calls: ${GATEWAY_CIRCUIT_BREAKER_MINIMUM_CALLS:10}
+        failure-rate-threshold: ${GATEWAY_CIRCUIT_BREAKER_FAILURE_RATE_THRESHOLD:50}
+        wait-duration-in-open-state: ${GATEWAY_CIRCUIT_BREAKER_OPEN_WAIT:10s}
+        permitted-number-of-calls-in-half-open-state: ${GATEWAY_CIRCUIT_BREAKER_HALF_OPEN_CALLS:3}
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+    instances:
+      authGateway:
+        base-config: gateway
+      productGateway:
+        base-config: gateway
+      inventoryGateway:
+        base-config: gateway
+      orderGateway:
+        base-config: gateway
+      notificationGateway:
+        base-config: gateway
+      analyticsGateway:
+        base-config: gateway
 
 management:
   endpoints:

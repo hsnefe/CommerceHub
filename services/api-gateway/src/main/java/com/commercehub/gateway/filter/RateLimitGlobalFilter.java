@@ -41,7 +41,7 @@ public class RateLimitGlobalFilter implements GlobalFilter, Ordered {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
-        if (path.startsWith("/actuator")) {
+        if (path.startsWith("/actuator") || path.startsWith("/fallback/")) {
             return chain.filter(exchange);
         }
         return keyResolver.resolve(exchange)
