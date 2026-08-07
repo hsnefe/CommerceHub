@@ -55,6 +55,7 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
 
     private boolean isPublic(String path) {
         return path.startsWith("/api/v1/auth/")
+                || path.startsWith("/actuator")
                 || path.startsWith("/swagger-ui")
                 || path.startsWith("/v3/api-docs")
                 || path.equals("/swagger-ui.html");

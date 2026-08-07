@@ -40,6 +40,10 @@ public class RateLimitGlobalFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        String path = exchange.getRequest().getURI().getPath();
+        if (path.startsWith("/actuator")) {
+            return chain.filter(exchange);
+        }
         return keyResolver.resolve(exchange)
                 .flatMap(key -> rateLimiter.isAllowed(ROUTE_ID, key))
                 .flatMap(response -> {

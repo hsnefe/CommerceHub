@@ -44,6 +44,7 @@ public class SecurityConfig {
                         .accessDeniedHandler(authenticationEntryPoint))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/internal/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/inventory", "/api/v1/inventory/**").permitAll()
                         .anyRequest().authenticated()
