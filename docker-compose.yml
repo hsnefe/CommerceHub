@@ -326,9 +326,49 @@ services:
       SPRING_RABBITMQ_PASSWORD: commercehub
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
 
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: commercehub-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    depends_on:
+      - api-gateway
+      - auth-service
+      - product-service
+      - inventory-service
+      - order-service
+      - notification-service
+      - analytics-service
+      - payment-service
+      - eureka-server
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    container_name: commercehub-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
 volumes:
   auth_pg_data:
   product_pg_data:
   inventory_pg_data:
   order_pg_data:
   analytics_pg_data:
+  prometheus_data:
+  grafana_data:
