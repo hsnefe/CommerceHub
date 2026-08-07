@@ -332,7 +332,7 @@ In Docker Compose these point at the `rabbitmq` service.
 
 ## V3 API Gateway + Eureka
 
-Service discovery and a single entry point for clients. CI/CD and Resilience4j come in later V3 stages.
+Service discovery and a single entry point for clients. Route resilience is documented in the V3 Resilience section below.
 
 ### Architecture
 
@@ -497,7 +497,39 @@ docker compose up elasticsearch kibana filebeat -d
 
 ### Actuator
 
-Exposed on every service: `health`, `info`, `prometheus` (permitAll / gateway public). Next V3 stage: Resilience4j.
+Exposed on every service: `health`, `info`, `prometheus` (permitAll / gateway public).
+
+## V3 Resilience (Resilience4j)
+
+Order and inventory protect their synchronous GET dependencies with explicit HTTP timeouts, limited retries, and independent circuit breakers:
+
+- `orderProduct`: order-service → product-service
+- `orderAuth`: order-service → auth-service
+- `inventoryProduct`: inventory-service → product-service
+
+The circuit state model is `CLOSED → OPEN → HALF_OPEN`. A 20-call count window opens at a 50% failure rate after at least 10 calls. It remains open for 10 seconds, then permits 3 half-open probe calls. Each dependency has its own state, so an auth failure does not open the product circuit.
+
+### Retry and timeout policy
+
+- Connect timeout: 500 ms; read timeout: 2 seconds.
+- At most 3 total attempts with 200 ms exponential backoff.
+- Retry only connection/refusal/timeout failures and HTTP 502, 503, or 504.
+- Do not retry 4xx responses, response decoding/schema failures, validation failures, or mutating HTTP calls.
+- Exhausted retries and open circuits produce controlled HTTP 503 responses. No fake product, price, or email fallback data is generated.
+
+Order and inventory support `HTTP_CLIENT_CONNECT_TIMEOUT_MS`, `HTTP_CLIENT_READ_TIMEOUT_MS`, `RETRY_MAX_ATTEMPTS`, `RETRY_WAIT_DURATION`, `CIRCUIT_BREAKER_SLIDING_WINDOW_SIZE`, `CIRCUIT_BREAKER_MINIMUM_CALLS`, `CIRCUIT_BREAKER_FAILURE_RATE_THRESHOLD`, `CIRCUIT_BREAKER_OPEN_WAIT`, and `CIRCUIT_BREAKER_HALF_OPEN_CALLS`.
+
+### Gateway policy
+
+Each of the six `lb://` routes has its own circuit breaker and forwards failures to `/fallback/{service}`, which returns a standard HTTP 503 JSON response. The gateway intentionally has no Retry filter because replaying POST, PATCH, or DELETE requests can duplicate mutations.
+
+Gateway circuit settings are overridable with the corresponding `GATEWAY_CIRCUIT_BREAKER_*` environment variables.
+
+### Metrics
+
+Resilience4j metrics are exported through each service's `/actuator/prometheus` endpoint. Useful series include `resilience4j_circuitbreaker_state`, `resilience4j_circuitbreaker_calls_seconds`, and `resilience4j_retry_calls`.
+
+The next V3 stage is CI/CD.
 
 ## Front-End Dev Console
 
