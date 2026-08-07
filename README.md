@@ -332,7 +332,7 @@ In Docker Compose these point at the `rabbitmq` service.
 
 ## V3 API Gateway + Eureka
 
-Service discovery and a single entry point for clients. Observability and CI/CD come in later V3 stages.
+Service discovery and a single entry point for clients. CI/CD and Resilience4j come in later V3 stages.
 
 ### Architecture
 
@@ -452,6 +452,52 @@ Admin `PATCH /api/v1/orders/{id}/status` to `PAID` still works as a manual overr
 # Demo compensation path
 PAYMENT_SIMULATE_FAILURE=true docker compose up payment-service -d
 ```
+
+## V3 Observability (Prometheus, Grafana, logging)
+
+Metrics and centralized logs for all runnable services. Config under [`observability/`](observability/).
+
+### Metrics
+
+| Item | URL |
+|------|-----|
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3000 (`admin` / `admin`) |
+| Per-service scrape | `http://<service>:<port>/actuator/prometheus` |
+
+Grafana ships with a provisioned **CommerceHub Overview** dashboard (HTTP rate, latency, 5xx, JVM heap).
+
+```bash
+docker compose up prometheus grafana -d
+```
+
+### Correlation ID
+
+- Header: `X-Correlation-Id` (generated at the gateway if missing)
+- Propagated to downstream services; echoed on responses
+- Included in console logs via MDC (`correlationId`, `serviceName`)
+
+```bash
+curl -i -H "X-Correlation-Id: demo-123" http://localhost:8080/api/v1/products
+```
+
+### Centralized logging (ELK-lite)
+
+| Item | URL / note |
+|------|------------|
+| Elasticsearch | http://localhost:9200 |
+| Kibana | http://localhost:5601 |
+| Shipper | Filebeat (Docker container logs) — Logstash omitted to keep Compose lighter |
+
+Index pattern: `commercehub-logs-*`.
+
+```bash
+docker compose up elasticsearch kibana filebeat -d
+```
+
+### Actuator
+
+Exposed on every service: `health`, `info`, `prometheus` (permitAll / gateway public). Next V3 stage: Resilience4j.
 
 ## Front-End Dev Console
 
