@@ -31,6 +31,9 @@ auth:
     access-token-expiration-seconds: 3600
 
 commercehub:
+  http-client:
+    connect-timeout-ms: ${HTTP_CLIENT_CONNECT_TIMEOUT_MS:500}
+    read-timeout-ms: ${HTTP_CLIENT_READ_TIMEOUT_MS:2000}
   product-service:
     base-url: ${PRODUCT_SERVICE_BASE_URL:http://localhost:8082}
 
