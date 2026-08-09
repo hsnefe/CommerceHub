@@ -33,7 +33,7 @@
 
     <properties>
         <java.version>21</java.version>
-        <testcontainers.version>1.20.4</testcontainers.version>
+        <testcontainers.version>1.21.4</testcontainers.version>
         <spring-cloud.version>2024.0.0</spring-cloud.version>
         <resilience4j.version>2.4.0</resilience4j.version>
     </properties>
