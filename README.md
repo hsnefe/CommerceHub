@@ -1,5 +1,7 @@
 # CommerceHub
 
+[![CI](https://github.com/hsnefe/CommerceHub/actions/workflows/ci.yml/badge.svg)](https://github.com/hsnefe/CommerceHub/actions/workflows/ci.yml)
+
 Distributed e-commerce backend platform built with Java microservices.
 
 ## Auth Service
@@ -529,7 +531,39 @@ Gateway circuit settings are overridable with the corresponding `GATEWAY_CIRCUIT
 
 Resilience4j metrics are exported through each service's `/actuator/prometheus` endpoint. Useful series include `resilience4j_circuitbreaker_state`, `resilience4j_circuitbreaker_calls_seconds`, and `resilience4j_retry_calls`.
 
-The next V3 stage is CI/CD.
+## V3 CI/CD (GitHub Actions)
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) covers the full pipeline: build, test, image creation, and deployment preparation. This completes V3.
+
+### Jobs
+
+| Job | Runs |
+|-----|------|
+| `build-test` | `mvn -B -ntp verify` across all 12 modules; Testcontainers spins up PostgreSQL and Redis. Test reports are uploaded when the job fails |
+| `frontend` | `npm ci && npm run build` for the dev console |
+| `images` | Matrix over the 9 runnable services; builds each Dockerfile and pushes to GHCR |
+| `release` | Only on `v*` tags; attaches the production compose files to a GitHub Release |
+
+Triggers are pushes to `main`, `v*` tags, pull requests, and manual dispatch. Runs for the same ref cancel each other. Pull requests build images but never push them, so a fork cannot publish to the registry.
+
+### Images
+
+Published to `ghcr.io/hsnefe/commercehub-<service>` using the built-in `GITHUB_TOKEN`; no extra secrets are needed. Tags are the branch name, the short commit SHA, and on `v*` tags the semantic version plus `latest`.
+
+```bash
+docker pull ghcr.io/hsnefe/commercehub-order-service:latest
+```
+
+### Production deployment
+
+[`docker-compose.prod.yml`](docker-compose.prod.yml) uses the published images instead of local builds. Every secret comes from the environment and startup fails fast when one is missing. Only the API Gateway (`8080`), Prometheus (`9090`), Grafana (`3000`), and Kibana (`5601`) are published to the host; databases, RabbitMQ, Redis, and the individual services stay on the internal network.
+
+```bash
+cp .env.prod.example .env.prod   # then fill in real values
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
+```
+
+Pin a specific build with `COMMERCEHUB_VERSION` (for example `3.0.0`) instead of the default `latest`.
 
 ## Front-End Dev Console
 
