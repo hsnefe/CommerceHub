@@ -10,14 +10,12 @@ import com.commercehub.messaging.event.StockReservedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.UUID;
 
 @Component
-@ConditionalOnBean(DomainEventPublisher.class)
 public class OrderInventoryEventListener {
 
     private static final Logger log = LoggerFactory.getLogger(OrderInventoryEventListener.class);

@@ -1,6 +1,5 @@
 package com.commercehub.notification.messaging;
 
-import com.commercehub.messaging.DomainEventPublisher;
 import com.commercehub.messaging.MessagingTopology;
 import com.commercehub.messaging.event.OrderCancelledEvent;
 import com.commercehub.messaging.event.OrderCreatedEvent;
@@ -15,11 +14,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.support.converter.MessageConverter;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnBean(DomainEventPublisher.class)
 public class DomainEventNotificationListener {
 
     private static final Logger log = LoggerFactory.getLogger(DomainEventNotificationListener.class);

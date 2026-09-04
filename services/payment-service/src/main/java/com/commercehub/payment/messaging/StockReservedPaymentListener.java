@@ -1,17 +1,14 @@
 package com.commercehub.payment.messaging;
 
-import com.commercehub.messaging.DomainEventPublisher;
 import com.commercehub.messaging.MessagingTopology;
 import com.commercehub.messaging.event.StockReservedEvent;
 import com.commercehub.payment.service.PaymentSimulationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnBean(DomainEventPublisher.class)
 public class StockReservedPaymentListener {
 
     private static final Logger log = LoggerFactory.getLogger(StockReservedPaymentListener.class);
