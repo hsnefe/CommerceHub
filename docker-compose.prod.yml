@@ -2,7 +2,9 @@
 #   cp .env.prod.example .env.prod   (then fill in real values)
 #   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
 #
-# Only the API Gateway and the observability UIs are published to the host.
+# Only the API Gateway is published on a public interface. Prometheus, Grafana
+# and Kibana bind to 127.0.0.1 and are reached over an SSH tunnel:
+#   ssh -L 3000:localhost:3000 -L 9090:localhost:9090 -L 5601:localhost:5601 user@host
 # Databases, brokers and individual services stay on the internal network.
 #
 # Memory limits are sized for the Oracle Cloud "Always Free" A1 shape
@@ -341,7 +343,7 @@ services:
     mem_limit: 1024m
     restart: unless-stopped
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     volumes:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -366,7 +368,7 @@ services:
     mem_limit: 512m
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
@@ -402,7 +404,7 @@ services:
     mem_limit: 1024m
     restart: unless-stopped
     ports:
-      - "5601:5601"
+      - "127.0.0.1:5601:5601"
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
       xpack.security.enabled: "false"
