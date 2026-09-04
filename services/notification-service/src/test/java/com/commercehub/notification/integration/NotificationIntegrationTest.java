@@ -1,8 +1,11 @@
 package com.commercehub.notification.integration;
 
+import com.commercehub.messaging.MessagingTopology;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.amqp.rabbit.listener.AbstractMessageListenerContainer;
+import org.springframework.amqp.rabbit.listener.RabbitListenerEndpointRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,9 +13,13 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -28,6 +35,37 @@ class NotificationIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private RabbitListenerEndpointRegistry rabbitListenerEndpointRegistry;
+
+    /**
+     * Tests here have to sit in a @Nested group like the rest of this class:
+     * Surefire reports the outer class of a @Nested hierarchy separately and
+     * does not execute methods declared directly on it.
+     */
+    @Nested
+    class Messaging {
+
+        /**
+         * Guards the queues this service consumes. A listener bean that drops out
+         * of the context leaves its queue without a consumer, which kills the
+         * asynchronous flow while every other test still passes.
+         */
+        @Test
+        void registersAListenerForEveryQueueItConsumes() {
+            Set<String> queues = rabbitListenerEndpointRegistry.getListenerContainers().stream()
+                    .filter(AbstractMessageListenerContainer.class::isInstance)
+                    .map(AbstractMessageListenerContainer.class::cast)
+                    .flatMap(container -> Arrays.stream(container.getQueueNames()))
+                    .collect(Collectors.toSet());
+
+            assertThat(queues).containsExactlyInAnyOrder(
+                    MessagingTopology.QUEUE_NOTIFICATION_ORDER_EVENTS,
+                    MessagingTopology.QUEUE_NOTIFICATION_STOCK_EVENTS,
+                    MessagingTopology.QUEUE_NOTIFICATION_PAYMENT_EVENTS);
+        }
+    }
 
     private Map<String, String> validRequest() {
         Map<String, String> request = new LinkedHashMap<>();
