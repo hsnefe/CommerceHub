@@ -2,15 +2,25 @@
 #   cp .env.prod.example .env.prod   (then fill in real values)
 #   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
 #
-# Only the API Gateway and the observability UIs are published to the host.
+# Only the API Gateway is published on a public interface. Prometheus, Grafana
+# and Kibana bind to 127.0.0.1 and are reached over an SSH tunnel:
+#   ssh -L 3000:localhost:3000 -L 9090:localhost:9090 -L 5601:localhost:5601 user@host
 # Databases, brokers and individual services stay on the internal network.
+#
+# Memory limits are sized for the Oracle Cloud "Always Free" A1 shape
+# (4 OCPU / 24 GB). The 21 services cap out at 14 GiB, leaving roughly 10 GiB
+# for the host, the Docker daemon, the reverse proxy and Postgres page cache.
+# On a smaller machine, drop elasticsearch, kibana and filebeat first: they
+# account for 3.25 GiB on their own.
 
 services:
   eureka-server:
     image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER is required}/commercehub-eureka-server:${COMMERCEHUB_VERSION:-latest}
     container_name: commercehub-eureka-server
+    mem_limit: 640m
     restart: unless-stopped
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65 -XX:+UseSerialGC"
       EUREKA_INSTANCE_HOSTNAME: eureka-server
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8761'"]
@@ -22,6 +32,7 @@ services:
   api-gateway:
     image: ghcr.io/${GHCR_OWNER}/commercehub-api-gateway:${COMMERCEHUB_VERSION:-latest}
     container_name: commercehub-api-gateway
+    mem_limit: 768m
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -45,6 +56,7 @@ services:
       payment-service:
         condition: service_started
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65 -XX:+UseSerialGC"
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       SPRING_DATA_REDIS_HOST: redis
@@ -52,6 +64,7 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management
     container_name: commercehub-rabbitmq
+    mem_limit: 768m
     restart: unless-stopped
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?RABBITMQ_USER is required}
@@ -67,6 +80,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: commercehub-redis
+    mem_limit: 256m
     restart: unless-stopped
     volumes:
       - redis_data:/data
@@ -79,6 +93,7 @@ services:
   auth-db:
     image: postgres:16
     container_name: commercehub-auth-db
+    mem_limit: 512m
     restart: unless-stopped
     environment:
       POSTGRES_DB: auth_db
@@ -95,6 +110,7 @@ services:
   auth-service:
     image: ghcr.io/${GHCR_OWNER}/commercehub-auth-service:${COMMERCEHUB_VERSION:-latest}
     container_name: commercehub-auth-service
+    mem_limit: 640m
     restart: unless-stopped
     depends_on:
       auth-db:
@@ -104,6 +120,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65 -XX:+UseSerialGC"
       SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/auth_db
       SPRING_DATASOURCE_USERNAME: auth_user
       SPRING_DATASOURCE_PASSWORD: ${AUTH_DB_PASSWORD}
@@ -115,6 +132,7 @@ services:
   product-db:
     image: postgres:16
     container_name: commercehub-product-db
+    mem_limit: 512m
     restart: unless-stopped
     environment:
       POSTGRES_DB: product_db
@@ -131,6 +149,7 @@ services:
   product-service:
     image: ghcr.io/${GHCR_OWNER}/commercehub-product-service:${COMMERCEHUB_VERSION:-latest}
     container_name: commercehub-product-service
+    mem_limit: 640m
     restart: unless-stopped
     depends_on:
       product-db:
@@ -140,6 +159,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65 -XX:+UseSerialGC"
       SPRING_DATASOURCE_URL: jdbc:postgresql://product-db:5432/product_db
       SPRING_DATASOURCE_USERNAME: product_user
       SPRING_DATASOURCE_PASSWORD: ${PRODUCT_DB_PASSWORD}
@@ -150,6 +170,7 @@ services:
   inventory-db:
     image: postgres:16
     container_name: commercehub-inventory-db
+    mem_limit: 512m
     restart: unless-stopped
     environment:
       POSTGRES_DB: inventory_db
@@ -166,6 +187,7 @@ services:
   inventory-service:
     image: ghcr.io/${GHCR_OWNER}/commercehub-inventory-service:${COMMERCEHUB_VERSION:-latest}
     container_name: commercehub-inventory-service
+    mem_limit: 640m
     restart: unless-stopped
     depends_on:
       inventory-db:
@@ -177,6 +199,7 @@ services:
       eureka-server:
         condition: service_healthy
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65 -XX:+UseSerialGC"
       SPRING_DATASOURCE_URL: jdbc:postgresql://inventory-db:5432/inventory_db
       SPRING_DATASOURCE_USERNAME: inventory_user
       SPRING_DATASOURCE_PASSWORD: ${INVENTORY_DB_PASSWORD}
@@ -191,6 +214,7 @@ services:
   order-db:
     image: postgres:16
     container_name: commercehub-order-db
+    mem_limit: 512m
     restart: unless-stopped
     environment:
       POSTGRES_DB: order_db
@@ -207,6 +231,7 @@ services:
   order-service:
     image: ghcr.io/${GHCR_OWNER}/commercehub-order-service:${COMMERCEHUB_VERSION:-latest}
     container_name: commercehub-order-service
+    mem_limit: 640m
     restart: unless-stopped
     depends_on:
       order-db:
@@ -220,6 +245,7 @@ services:
       eureka-server:
         condition: service_healthy
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65 -XX:+UseSerialGC"
       SPRING_DATASOURCE_URL: jdbc:postgresql://order-db:5432/order_db
       SPRING_DATASOURCE_USERNAME: order_user
       SPRING_DATASOURCE_PASSWORD: ${ORDER_DB_PASSWORD}
@@ -235,6 +261,7 @@ services:
   notification-service:
     image: ghcr.io/${GHCR_OWNER}/commercehub-notification-service:${COMMERCEHUB_VERSION:-latest}
     container_name: commercehub-notification-service
+    mem_limit: 640m
     restart: unless-stopped
     depends_on:
       rabbitmq:
@@ -242,6 +269,7 @@ services:
       eureka-server:
         condition: service_healthy
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65 -XX:+UseSerialGC"
       JWT_SECRET: ${JWT_SECRET}
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: "5672"
@@ -252,6 +280,7 @@ services:
   payment-service:
     image: ghcr.io/${GHCR_OWNER}/commercehub-payment-service:${COMMERCEHUB_VERSION:-latest}
     container_name: commercehub-payment-service
+    mem_limit: 640m
     restart: unless-stopped
     depends_on:
       rabbitmq:
@@ -259,6 +288,7 @@ services:
       eureka-server:
         condition: service_healthy
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65 -XX:+UseSerialGC"
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: "5672"
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER}
@@ -269,6 +299,7 @@ services:
   analytics-db:
     image: postgres:16
     container_name: commercehub-analytics-db
+    mem_limit: 512m
     restart: unless-stopped
     environment:
       POSTGRES_DB: analytics_db
@@ -285,6 +316,7 @@ services:
   analytics-service:
     image: ghcr.io/${GHCR_OWNER}/commercehub-analytics-service:${COMMERCEHUB_VERSION:-latest}
     container_name: commercehub-analytics-service
+    mem_limit: 640m
     restart: unless-stopped
     depends_on:
       analytics-db:
@@ -294,6 +326,7 @@ services:
       eureka-server:
         condition: service_healthy
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65 -XX:+UseSerialGC"
       SPRING_DATASOURCE_URL: jdbc:postgresql://analytics-db:5432/analytics_db
       SPRING_DATASOURCE_USERNAME: analytics_user
       SPRING_DATASOURCE_PASSWORD: ${ANALYTICS_DB_PASSWORD}
@@ -307,9 +340,10 @@ services:
   prometheus:
     image: prom/prometheus:v2.55.1
     container_name: commercehub-prometheus
+    mem_limit: 1024m
     restart: unless-stopped
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     volumes:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -331,9 +365,10 @@ services:
   grafana:
     image: grafana/grafana:11.3.1
     container_name: commercehub-grafana
+    mem_limit: 512m
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
@@ -347,6 +382,7 @@ services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
     container_name: commercehub-elasticsearch
+    mem_limit: 2048m
     restart: unless-stopped
     environment:
       discovery.type: single-node
@@ -365,9 +401,10 @@ services:
   kibana:
     image: docker.elastic.co/kibana/kibana:8.15.3
     container_name: commercehub-kibana
+    mem_limit: 1024m
     restart: unless-stopped
     ports:
-      - "5601:5601"
+      - "127.0.0.1:5601:5601"
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
       xpack.security.enabled: "false"
@@ -378,6 +415,7 @@ services:
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.15.3
     container_name: commercehub-filebeat
+    mem_limit: 256m
     restart: unless-stopped
     user: root
     volumes:

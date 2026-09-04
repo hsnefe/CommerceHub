@@ -1,10 +1,13 @@
 import { clearSession, getSession, setSession } from "./session.js";
 
+// Every service is reached through the API Gateway on the same origin as this
+// page, so the browser never needs a cross-origin request. Serve these files
+// behind a proxy that forwards /api/* to the gateway (port 8080).
 export const API = {
-  auth: "http://localhost:8081",
-  product: "http://localhost:8082",
-  inventory: "http://localhost:8083",
-  order: "http://localhost:8084",
+  auth: "",
+  product: "",
+  inventory: "",
+  order: "",
 };
 
 /**
