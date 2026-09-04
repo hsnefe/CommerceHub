@@ -3,6 +3,7 @@ package com.commercehub.inventory.client;
 import com.commercehub.inventory.InventoryServiceApplication;
 import com.commercehub.inventory.config.RestClientConfig;
 import com.commercehub.inventory.exception.NotFoundException;
+import com.commercehub.messaging.CommonMessagingAutoConfiguration;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
@@ -154,7 +155,8 @@ class ProductClientResilienceIntegrationTest {
             DataSourceAutoConfiguration.class,
             HibernateJpaAutoConfiguration.class,
             FlywayAutoConfiguration.class,
-            RabbitAutoConfiguration.class
+            RabbitAutoConfiguration.class,
+            CommonMessagingAutoConfiguration.class
     })
     @ConfigurationPropertiesScan(basePackageClasses = InventoryServiceApplication.class)
     @Import({RestClientConfig.class, ProductClient.class})

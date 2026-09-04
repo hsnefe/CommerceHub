@@ -4,6 +4,7 @@ import com.commercehub.order.OrderServiceApplication;
 import com.commercehub.order.config.RestClientConfig;
 import com.commercehub.order.exception.NotFoundException;
 import com.commercehub.order.exception.TransientServiceUnavailableException;
+import com.commercehub.messaging.CommonMessagingAutoConfiguration;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
@@ -213,7 +214,8 @@ class ServiceClientResilienceIntegrationTest {
             DataSourceAutoConfiguration.class,
             HibernateJpaAutoConfiguration.class,
             FlywayAutoConfiguration.class,
-            RabbitAutoConfiguration.class
+            RabbitAutoConfiguration.class,
+            CommonMessagingAutoConfiguration.class
     })
     @ConfigurationPropertiesScan(basePackageClasses = OrderServiceApplication.class)
     @Import({RestClientConfig.class, ProductClient.class, AuthClient.class})
