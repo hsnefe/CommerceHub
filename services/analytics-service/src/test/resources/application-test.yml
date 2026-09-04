@@ -9,10 +9,10 @@ spring:
       ddl-auto: none
   flyway:
     enabled: true
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
-      - com.commercehub.messaging.CommonMessagingAutoConfiguration
+  rabbitmq:
+    listener:
+      simple:
+        auto-startup: false
 
 auth:
   jwt:

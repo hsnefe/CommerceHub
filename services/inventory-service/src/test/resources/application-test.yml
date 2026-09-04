@@ -3,10 +3,10 @@ spring:
     url: jdbc:postgresql://localhost:5435/inventory_db
     username: inventory_user
     password: inventory_pass
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
-      - com.commercehub.messaging.CommonMessagingAutoConfiguration
+  rabbitmq:
+    listener:
+      simple:
+        auto-startup: false
 
 auth:
   jwt:
