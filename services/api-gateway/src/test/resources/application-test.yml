@@ -1,9 +1,16 @@
 gateway:
   rate-limit:
+    # One request drains the whole bucket, so the next one has to wait for a
+    # full refill. At one token per second that is a 30 second margin.
+    #
+    # With a small bucket and one token per request the margin was one second:
+    # a loaded runner let a token replenish between the warm-up requests and the
+    # assertion, the request then reached a route with no instance behind it and
+    # came back 503 instead of 429.
     enabled: true
     replenish-rate: 1
-    burst-capacity: 2
-    requested-tokens: 1
+    burst-capacity: 30
+    requested-tokens: 30
 
 auth:
   jwt:
