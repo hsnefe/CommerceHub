@@ -1,6 +1,7 @@
 package com.commercehub.inventory.integration;
 
 import com.commercehub.inventory.client.ProductClient;
+import com.commercehub.messaging.MessagingTopology;
 import com.commercehub.inventory.dto.InventoryRequest;
 import com.commercehub.inventory.dto.InventoryUpdateRequest;
 import com.commercehub.inventory.dto.QuantityAdjustmentRequest;
@@ -8,6 +9,8 @@ import com.commercehub.security.JwtService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.amqp.rabbit.listener.AbstractMessageListenerContainer;
+import org.springframework.amqp.rabbit.listener.RabbitListenerEndpointRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,9 +24,13 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -68,6 +75,27 @@ class InventoryIntegrationTest {
 
     private static final UUID SEED_PRODUCT_ID = UUID.fromString("a1000000-0000-4000-8000-000000000001");
     private static final UUID LOW_STOCK_PRODUCT_ID = UUID.fromString("a1000000-0000-4000-8000-000000000002");
+
+    @Autowired
+    private RabbitListenerEndpointRegistry rabbitListenerEndpointRegistry;
+
+    /**
+     * Guards the queues this service consumes. A listener bean that drops out of
+     * the context leaves its queue without a consumer, which kills the
+     * asynchronous flow while every other test still passes.
+     */
+    @Test
+    void registersAListenerForEveryQueueItConsumes() {
+        Set<String> queues = rabbitListenerEndpointRegistry.getListenerContainers().stream()
+                .filter(AbstractMessageListenerContainer.class::isInstance)
+                .map(AbstractMessageListenerContainer.class::cast)
+                .flatMap(container -> Arrays.stream(container.getQueueNames()))
+                .collect(Collectors.toSet());
+
+        assertThat(queues).containsExactlyInAnyOrder(
+                MessagingTopology.QUEUE_INVENTORY_ORDER_CREATED,
+                MessagingTopology.QUEUE_INVENTORY_ORDER_CANCELLED);
+    }
 
     @BeforeEach
     void setUp() {

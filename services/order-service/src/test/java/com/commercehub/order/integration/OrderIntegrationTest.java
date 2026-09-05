@@ -1,6 +1,7 @@
 package com.commercehub.order.integration;
 
 import com.commercehub.messaging.DomainEventPublisher;
+import com.commercehub.messaging.MessagingTopology;
 import com.commercehub.order.client.AuthClient;
 import com.commercehub.order.client.ProductClient;
 import com.commercehub.order.dto.CreateOrderRequest;
@@ -9,6 +10,8 @@ import com.commercehub.security.JwtService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.amqp.rabbit.listener.AbstractMessageListenerContainer;
+import org.springframework.amqp.rabbit.listener.RabbitListenerEndpointRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -24,9 +27,13 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
@@ -64,6 +71,9 @@ class OrderIntegrationTest {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private RabbitListenerEndpointRegistry rabbitListenerEndpointRegistry;
+
     @MockBean
     private ProductClient productClient;
 
@@ -93,6 +103,25 @@ class OrderIntegrationTest {
                 .thenReturn(new ProductSnapshotResponse(PRODUCT_ID, "Gaming Mouse", new BigDecimal("799.99")));
         when(authClient.getUserEmail(any(UUID.class))).thenReturn("user@example.com");
         doNothing().when(domainEventPublisher).publish(any(), any());
+    }
+
+    /**
+     * Guards the queues this service consumes. A listener bean that drops out of
+     * the context leaves its queue without a consumer, which kills the
+     * asynchronous flow while every other test still passes.
+     */
+    @Test
+    void registersAListenerForEveryQueueItConsumes() {
+        Set<String> queues = rabbitListenerEndpointRegistry.getListenerContainers().stream()
+                .filter(AbstractMessageListenerContainer.class::isInstance)
+                .map(AbstractMessageListenerContainer.class::cast)
+                .flatMap(container -> Arrays.stream(container.getQueueNames()))
+                .collect(Collectors.toSet());
+
+        assertThat(queues).containsExactlyInAnyOrder(
+                MessagingTopology.QUEUE_ORDER_STOCK_RESERVED,
+                MessagingTopology.QUEUE_ORDER_PAYMENT_SUCCEEDED,
+                MessagingTopology.QUEUE_ORDER_PAYMENT_FAILED);
     }
 
     @Test
